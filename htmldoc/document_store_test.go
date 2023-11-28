@@ -48,6 +48,25 @@ func TestDocumentStoreIgnorePatterns(t *testing.T) {
 	}
 }
 
+func TestDocumentStoreTestOnlyDir(t *testing.T) {
+	dS := NewDocumentStore()
+	dS.BasePath = "fixtures/documents"
+	dS.DocumentExtension = ".html" // Ignores .htm
+	dS.DirectoryIndex = "index.html"
+	dS.TestOnlyDir = "dir1"
+	dS.Discover()
+	// TestOnlyDir does not affect stored document count
+	assert.Equals(t, "document count", dS.DocumentCount(), ExpectedHtmlDocumentCount)
+	assert.Equals(t, "ignored document count", dS.IgnoredDocCount(), ExpectedHtmlDocumentCount-2)
+
+	testFiles := [2]string{"dir1/index.html", "dir1/dir11/index.html"}
+	for _, keptFile := range testFiles {
+		f, exists := dS.DocumentPathMap[keptFile]
+		assert.IsTrue(t, keptFile+" exists", exists)
+		assert.IsFalse(t, keptFile+" is not ignored", f.IgnoreTest)
+	}
+}
+
 func TestDocumentStoreDocumentExists(t *testing.T) {
 	// documentstore knows if documents exist or not
 	dS := NewDocumentStore()
