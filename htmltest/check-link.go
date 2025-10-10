@@ -154,7 +154,7 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 
 	cR, isCached := hT.refCache.Get(urlStr)
 
-	if isCached && statusCodeValid(cR.StatusCode) {
+	if isCached && (statusCodeValid(cR.StatusCode) || hT.opts.IgnoreCachedErrors) {
 		// If we have a valid result in cache, use that
 		statusCode = cR.StatusCode
 		hT.issueStore.AddIssue(issues.Issue{
@@ -380,7 +380,7 @@ func (hT *HTMLTest) checkFile(ref *htmldoc.Reference, absPath string) bool {
 	output.CheckErrorPanic(err)
 
 	if f.IsDir() {
-		f, err = os.Stat(path.Join(absPath, hT.opts.DirectoryIndex))
+		_, err = os.Stat(path.Join(absPath, hT.opts.DirectoryIndex))
 		if os.IsNotExist(err) {
 			hT.issueStore.AddIssue(issues.Issue{
 				Level:     issues.LevelError,
