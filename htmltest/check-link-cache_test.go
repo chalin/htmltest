@@ -11,8 +11,9 @@ import (
 // Feature: RetryCachedErrors
 // Added by @chalin
 
-func TestAnchorExternalBrokenCached(t *testing.T) {
-	// URLs returning HTTP error status codes (404) should be saved to cache
+// TestExternalErrorCached : Test that URLs with HTTP error status codes (such
+// as 404) are saved to the refcache.
+func TestExternalErrorCached(t *testing.T) {
 	hT := tTestFileOpts("fixtures/images/imageExternal404.html",
 		map[string]interface{}{"VCREnable": true, "EnableCache": true})
 	tExpectIssueCount(t, hT, 1)
@@ -28,9 +29,9 @@ func TestAnchorExternalBrokenCached(t *testing.T) {
 	}
 }
 
-// By default, cached non-ok status codes are retried
-func TestAnchorExternalNonOkCachedRetried(t *testing.T) {
-
+// TestExternalErrorCachedRetried : Test that by default cached error responses
+// (404, etc.) are retried on subsequent runs.
+func TestExternalErrorCachedRetried(t *testing.T) {
 	// First run: populate cache with 404
 	hT := tTestFileOpts("fixtures/images/imageExternal404.html",
 		map[string]interface{}{"VCREnable": true, "EnableCache": true})
@@ -50,8 +51,9 @@ func TestAnchorExternalNonOkCachedRetried(t *testing.T) {
 	}
 }
 
-func TestAnchorExternalBrokenRetryCachedErrorsDisabled(t *testing.T) {
-	// When RetryCachedErrors is false, cached 404s should be reused without retry
+// TestExternalBrokenRetryCachedErrorsDisabled : Test that URLs with non-OK
+// status are not retried when RetryCachedErrors is set to false.
+func TestExternalBrokenRetryCachedErrorsDisabled(t *testing.T) {
 	// First run: populate cache with 404
 	hT := tTestFileOpts("fixtures/images/imageExternal404.html",
 		map[string]interface{}{"VCREnable": true, "EnableCache": true, "RetryCachedErrors": false})
@@ -72,8 +74,10 @@ func TestAnchorExternalBrokenRetryCachedErrorsDisabled(t *testing.T) {
 // Timeout Caching Tests
 // ========================================
 
+// TestTimeoutNotCachedByDefault : Test that by default, timeouts are NOT cached
+// and are retried on every run. This ensures backward compatibility with the
+// original behavior.
 func TestTimeoutNotCachedByDefault(t *testing.T) {
-	// By default timeouts are NOT cached and are retried every run (backward compatibility)
 	tSkipShortExternal(t)
 
 	// First run: timeout occurs
@@ -96,8 +100,9 @@ func TestTimeoutNotCachedByDefault(t *testing.T) {
 	}
 }
 
+// TestTimeoutIsCached : Test that URLs that timeout are saved to the refcache
+// when RetryCachedErrors is false.
 func TestTimeoutIsCached(t *testing.T) {
-	// URLs that timeout should be saved to cache when RetryCachedErrors is false
 	tSkipShortExternal(t)
 	hT := tTestFileOpts("fixtures/links/ip_timeout.html",
 		map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "RetryCachedErrors": false})
@@ -114,8 +119,9 @@ func TestTimeoutIsCached(t *testing.T) {
 	}
 }
 
+// TestTimeoutCachedReused : Test that cached timeout results are reused on
+// subsequent runs without retrying the URL when RetryCachedErrors is false.
 func TestTimeoutCachedReused(t *testing.T) {
-	// When RetryCachedErrors is false, cached timeouts should be reused
 	tSkipShortExternal(t)
 
 	// First run: cause and cache a timeout
@@ -137,8 +143,9 @@ func TestTimeoutCachedReused(t *testing.T) {
 	}
 }
 
+// TestTimeoutCachedMessage : Test that a URL that previously timed out will be
+// reported as "(cached)" on subsequent runs. when RetryCachedErrors is false.
 func TestTimeoutCachedMessage(t *testing.T) {
-	// Cached timeouts should have a specific error message when reused
 	tSkipShortExternal(t)
 
 	// First run: cause and cache a timeout
