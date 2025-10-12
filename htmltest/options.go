@@ -52,7 +52,7 @@ type Options struct {
 	IgnoreDirectoryMissingTrailingSlash bool
 	IgnoreSSLVerify                     bool
 	IgnoreTagAttribute                  string
-	IgnoreCachedErrors                  bool
+	RetryCachedErrors                   bool
 
 	HTTPHeaders map[interface{}]interface{}
 
@@ -121,7 +121,7 @@ func DefaultOptions() map[string]interface{} {
 		"IgnoreDirectoryMissingTrailingSlash": false,
 		"IgnoreSSLVerify":                     false,
 		"IgnoreTagAttribute":                  "data-proofer-ignore",
-		"IgnoreCachedErrors":                  false,
+		"RetryCachedErrors":                   true,
 
 		"HTTPHeaders": map[interface{}]interface{}{
 			"Range":  "bytes=0-0", // If server supports prevents body being sent

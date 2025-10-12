@@ -154,7 +154,7 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 
 	cR, isCached := hT.refCache.Get(urlStr)
 
-	if isCached && (statusCodeValid(cR.StatusCode) || hT.opts.IgnoreCachedErrors) {
+	if isCached && (statusCodeValid(cR.StatusCode) || !hT.opts.RetryCachedErrors) {
 		// If we have a valid result in cache, use that
 		statusCode = cR.StatusCode
 		hT.issueStore.AddIssue(issues.Issue{
@@ -199,7 +199,7 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 
 		if err != nil {
 			if strings.Contains(err.Error(), "Client.Timeout") {
-				if hT.opts.IgnoreCachedErrors {
+				if !hT.opts.RetryCachedErrors {
 					hT.refCache.Save(urlStr, http.StatusRequestTimeout)
 				}
 				hT.issueStore.AddIssue(issues.Issue{
