@@ -53,20 +53,21 @@ func TestExternalErrorCachedRetried(t *testing.T) {
 
 // TestExternalBrokenRetryCachedErrorsDisabled : Test that URLs with non-OK
 // status are not retried when RetryCachedErrors is set to false.
+// Uses <q cite="..."> elements for variety.
 func TestExternalBrokenRetryCachedErrorsDisabled(t *testing.T) {
 	// First run: populate cache with 404
-	hT := tTestFileOpts("fixtures/images/imageExternal404.html",
+	hT := tTestFileOpts("fixtures/generic/citeBroken.html",
 		map[string]interface{}{"VCREnable": true, "EnableCache": true, "RetryCachedErrors": false})
-	tExpectIssueCount(t, hT, 1)
+	tExpectIssueCount(t, hT, 4) // 4 broken citations in the fixture
 
-	// Second run: WITHOUT VCR - should use cached 404, not retry (which would fail without VCR)
-	hT2 := tTestFileOpts("fixtures/images/imageExternal404.html",
+	// Second run: WITHOUT VCR - should use cached 404s, not retry (which would fail without VCR)
+	hT2 := tTestFileOpts("fixtures/generic/citeBroken.html",
 		map[string]interface{}{"EnableCache": true, "RetryCachedErrors": false, "LogLevel": issues.LevelDebug})
-	tExpectIssueCount(t, hT2, 1)
+	tExpectIssueCount(t, hT2, 4)
 
-	// Verify it used the cache by checking for "from cache" message
+	// Verify it used the cache by checking for "from cache" messages
 	if hT2.issueStore.MessageMatchCount("from cache") == 0 {
-		t.Error("expected cached 404 to be reused (should see 'from cache' message)")
+		t.Error("expected cached 404s to be reused (should see 'from cache' messages)")
 	}
 }
 
