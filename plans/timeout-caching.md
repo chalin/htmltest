@@ -11,14 +11,14 @@ results using `http.StatusRequestTimeout` (408).
 ### 1. Save timeouts to refcache (`htmltest/check-link.go`)
 
 When a timeout error occurs in `checkExternal()`, save the URL to cache with
-`http.StatusRequestTimeout` (408) **only if `IgnoreCachedErrors` is enabled**.
+`http.StatusRequestTimeout` (408) **only if `RetryCachedErrors` is disabled**.
 This preserves original behavior by default.
 
 ### 2. ~~Recognize 408 as valid cached status~~ (Not needed)
 
 No change to `statusCodeValid()` - it should only accept truly successful codes
-(200, 206). The `IgnoreCachedErrors` feature handles accepting cached 408s when
-enabled.
+(200, 206). The `RetryCachedErrors` feature handles accepting cached 408s when
+disabled.
 
 ### 3. Handle 408 in status code switch (`htmltest/check-link.go`)
 
@@ -31,10 +31,10 @@ cached timeouts as errors with message "request exceeded our ExternalTimeout
 Add tests to verify:
 
 - Timeouts are cached with `http.StatusRequestTimeout` (408) when
-  `IgnoreCachedErrors: true`
+  `RetryCachedErrors: false`
 - Timeouts are NOT cached by default (backward compatibility)
 - Cached timeout results are retrieved on subsequent runs (with
-  `IgnoreCachedErrors: true`)
+  `RetryCachedErrors: false`)
 - Errors are still reported for cached timeouts
 
 ## Benefits
@@ -43,7 +43,7 @@ Add tests to verify:
 - Speeds up subsequent test runs when timeouts occur
 - Reduces load on external servers that are slow/unreliable
 - Maintains error reporting while improving performance
-- Works automatically with `IgnoreCachedErrors` feature (when enabled, cached
+- Works automatically with `RetryCachedErrors` feature (when disabled, cached
   408s are trusted like other errors)
 
 ## Notes
@@ -52,12 +52,12 @@ Add tests to verify:
 - Status code 408: `http.StatusRequestTimeout` - standard HTTP status code for
   request timeouts
 - Uses stdlib constant, no magic numbers
-- Conditional caching: Timeouts only cached when `IgnoreCachedErrors: true`
+- Conditional caching: Timeouts only cached when `RetryCachedErrors: false`
 - Backward compatible: Default behavior unchanged (timeouts always retried)
 
 ## To-dos
 
 - [x] Save timeout errors to refcache with `http.StatusRequestTimeout` (408)
-      when `IgnoreCachedErrors: true`
+      when `RetryCachedErrors: false`
 - [x] Add case for `http.StatusRequestTimeout` to report cached timeouts
 - [x] Add tests in check-link-cache_test.go (4 tests added)

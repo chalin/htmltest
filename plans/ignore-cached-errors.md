@@ -1,11 +1,11 @@
-# Respect Cached Error Status Codes
+# RetryCachedErrors Config Option
 
 ## Overview
 
 Currently, when external URLs return error status codes (404, 403, 429, etc.),
 htmltest saves them to the refcache but retries them on subsequent runs because
-`statusCodeValid()` only accepts 200 and 206. This plan adds an
-`IgnoreCachedErrors` config option to trust cached error responses.
+`statusCodeValid()` only accepts 200 and 206. This plan adds a
+`RetryCachedErrors` config option to control retry behavior for cached errors.
 
 ## Problem
 
@@ -15,43 +15,43 @@ status code.
 
 ## Solution
 
-Add `IgnoreCachedErrors` boolean config option (default: `false` for backward
-compatibility). When enabled, htmltest will trust ALL cached status codes
-(including errors) and not retry them, but will still report errors
-appropriately.
+Add `RetryCachedErrors` boolean config option (default: `true` to preserve
+current behavior). When true, retries external links even if cached with error
+status codes. When false, trusts all cached results without retry, but still
+reports errors appropriately.
 
 ## Changes
 
-### 1. Add IgnoreCachedErrors option (`htmltest/options.go`)
+### 1. Add RetryCachedErrors option (`htmltest/options.go`)
 
-Add `IgnoreCachedErrors bool` field to the `Options` struct and set default to
-`false` in `DefaultOptions()`.
+Add `RetryCachedErrors bool` field to the `Options` struct and set default to
+`true` in `DefaultOptions()`.
 
 ### 2. Modify cache check logic (`htmltest/check-link.go`)
 
 Update the `checkExternal()` function to accept cached results when:
 
 - The status code is valid (200/206), OR
-- `IgnoreCachedErrors` is enabled (trusts all cached status codes)
+- `RetryCachedErrors` is disabled (trusts all cached status codes)
 
-### 3. Add tests (`htmltest/check-link_test.go`)
+### 3. Add tests (`htmltest/check-link-cache_test.go`)
 
 Add tests to verify:
 
 - Error status codes (404, etc.) are cached
-- By default, cached errors are retried (backward compatibility)
-- When `IgnoreCachedErrors: true`, cached errors are reused without retry
+- By default (RetryCachedErrors=true), cached errors are retried (backward compatibility)
+- When `RetryCachedErrors: false`, cached errors are reused without retry
 - Cached errors still report as errors (not silently ignored)
 
 ### 4. Update documentation
 
-Update `README.md` to document the new `IgnoreCachedErrors` option.
+Update `README.md` to document the new `RetryCachedErrors` option.
 
 ## Files to modify
 
 - `htmltest/options.go` (2 locations)
 - `htmltest/check-link.go` (1 location)
-- `htmltest/check-link_test.go` (new tests)
+- `htmltest/check-link-cache_test.go` (new test file)
 - `README.md` (documentation)
 
 ## Thread Safety
@@ -67,10 +67,10 @@ mutex protection remains sufficient.
 
 ## Backward Compatibility
 
-- **Default behavior unchanged:** `IgnoreCachedErrors` defaults to `false`
+- **Default behavior unchanged:** `RetryCachedErrors` defaults to `true` (retries errors)
 - **No existing tests will break:** No tests currently verify cached error retry
   behavior
-- **Opt-in feature:** Users must explicitly enable to change behavior
+- **Opt-in feature:** Users must set to `false` to skip retries
 
 ## Benefits
 
@@ -83,7 +83,7 @@ mutex protection remains sufficient.
 
 ## To-dos
 
-- [x] Add IgnoreCachedErrors to Options struct and defaults
-- [x] Update checkExternal to accept all cached status codes when option enabled
+- [x] Add RetryCachedErrors to Options struct and defaults
+- [x] Update checkExternal to accept all cached status codes when option disabled
 - [x] Add tests for cached error handling behavior (3 comprehensive tests)
-- [x] Document IgnoreCachedErrors option in README
+- [x] Document RetryCachedErrors option in README
