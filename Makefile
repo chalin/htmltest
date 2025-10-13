@@ -1,5 +1,5 @@
 # Makefile
-# cSpell:ignore htmltest TESTFLAGS coverprofile gopath golangci covermode coverpkg gofmt benchmem
+# cSpell:ignore TESTFLAGS coverprofile gopath golangci ldflags covermode coverpkg gofmt benchmem
 
 .PHONY: build build-verify test test-race test-coverage test-ci test-bench lint clean install run fmt fmt-check vet check ci deps help
 
@@ -8,6 +8,7 @@ BINARY := htmltest
 
 # Version from git tags
 VERSION := $(shell git describe --tags 2>/dev/null || echo "dev")
+VERSION := $(VERSION)-chalin-dev
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Build flags

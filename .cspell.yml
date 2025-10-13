@@ -3,34 +3,31 @@ language: en
 caseSensitive: true
 ignorePaths:
   - "*.cassette"
-  - "go.sum"
-  - "go.mod"
-  - "node_modules/**"
-  - ".git/**"
-  - "tmp/**"
-  - "bin/**"
-  - "coverage.txt"
+  - go.sum
+  - go.mod
+  - node_modules/**
+  - .git/**
+  - tmp/**
+  - bin/**
+  - coverage.txt
 words:
-  # Project specific
-  - htmltest
-  - refcache
-  - htmldoc
-  # Go packages/libraries
   - badoux
-  - govcr
-  - mergo
-  - docopt
+  - chalin
+  - checkmail
   - daviddengcn
+  - docopt
+  - favicon
+  - github
+  - govcr
+  - htmldoc
+  - htmltest
   - imdario
+  - ints
+  - mergo
+  - opengraph
+  - preconnect
+  - proofer
+  - refcache
+  - rels
   - seborama
   - wjdp
-  # HTML/testing terms
-  - favicon
-  - opengraph
-  - proofer
-  - checkmail
-  # Other
-  - github
-  - ints
-  - preconnect
-  - rels
