@@ -200,7 +200,7 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 		if err != nil {
 			if strings.Contains(err.Error(), "Client.Timeout") {
 				if !hT.opts.RetryCachedErrors {
-					hT.refCache.Save(urlStr, http.StatusRequestTimeout)
+					hT.refCache.Save(urlStr, -10) // Tool-specific timeout code
 				}
 				hT.issueStore.AddIssue(issues.Issue{
 					Level:     issueLevel,
@@ -263,7 +263,9 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 			Message:   http.StatusText(statusCode),
 			Reference: ref,
 		})
-	case http.StatusRequestTimeout:
+	case http.StatusRequestTimeout: // Legacy: old cache files may have 408
+		fallthrough
+	case -10: // Tool-specific timeout code
 		hT.issueStore.AddIssue(issues.Issue{
 			Level:     issueLevel,
 			Message:   "request exceeded our ExternalTimeout (cached)",

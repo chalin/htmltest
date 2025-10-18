@@ -113,6 +113,49 @@ Run tests with race detection AND coverage (matches GitHub Actions CI):
 make test-ci
 ```
 
+### TDD Workflow (Recommended for Development)
+
+When developing features, use the TDD targets for fast iteration:
+
+```bash
+# Run specific test with clean cache (shows cache state after)
+make test-tdd-cache TEST_RUN=TestTimeoutIsCached
+
+# Run specific test (no cache inspection, faster)
+make test-tdd TEST_RUN=TestTimeoutIsCached
+
+# Run multiple tests matching a pattern
+make test-tdd TEST_RUN='.*Cache.*'
+
+# Just clean the cache
+make clean-cache
+```
+
+The `test-tdd` targets:
+- Automatically clean the refcache before running tests
+- Support pattern matching to run multiple related tests
+- `test-tdd-cache` shows the cache state after tests complete
+- Continue even if tests fail (good for RED phase of TDD)
+
+**TDD Workflow Example:**
+
+1. Write/update your test first (RED phase):
+   ```bash
+   make test-tdd-cache TEST_RUN=TestNewFeature
+   # Test fails, shows what's in cache
+   ```
+
+2. Implement the feature (GREEN phase):
+   ```bash
+   make test-tdd-cache TEST_RUN=TestNewFeature
+   # Test passes, verify cache state
+   ```
+
+3. Run related tests to check for regressions:
+   ```bash
+   make test-tdd TEST_RUN='.*Cache.*'
+   ```
+
 ### Test Specific Package
 
 ```bash
@@ -140,7 +183,7 @@ go tool cover -html=coverage.txt
 make test-bench
 ```
 
-### Run Specific Test
+### Run Specific Test (without Make)
 
 ```bash
 go test -v -run TestMissingOptions ./htmltest
@@ -275,22 +318,38 @@ func TestNewFeature(t *testing.T) {
 Run `make help` to see all available commands:
 
 ```bash
+# Build
 make build          # Build the binary
+make build-verify   # Build and verify with smoke tests
+make install        # Install to GOPATH/bin
+
+# Testing
 make test           # Run all tests
-make test-race      # Run tests with race detector
+make test-race      # Run tests with race detector (recommended)
 make test-coverage  # Generate coverage report
 make test-ci        # Run tests exactly as CI does (race + coverage)
 make test-bench     # Run benchmarks
-make lint           # Run linter
-make clean          # Remove build artifacts
-make install        # Install to GOPATH/bin
+
+# TDD Workflow (recommended during development)
+make test-tdd              # Run specific test(s) with clean cache
+make test-tdd-cache        # Same but shows cache state after
+make clean-cache           # Just remove refcache file
+
+# Code Quality
 make fmt            # Format code
 make fmt-check      # Check formatting (CI mode - fails if not formatted)
 make vet            # Run go vet
+make lint           # Run linter (requires golangci-lint)
 make check          # Run all CI checks locally (fmt-check, vet, test-ci)
 make ci             # Alias for check
-make help           # Show all commands
+
+# Utilities
+make clean          # Remove build artifacts and cache
+make deps           # Download dependencies
+make help           # Show all commands with examples
 ```
+
+See `make help` for TDD workflow examples and more details.
 
 ## Submitting Changes
 

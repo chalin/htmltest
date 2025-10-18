@@ -1,7 +1,6 @@
 package htmltest
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/wjdp/htmltest/issues"
@@ -110,13 +109,13 @@ func TestTimeoutIsCached(t *testing.T) {
 	tExpectIssueCount(t, hT, 1)
 	tExpectIssue(t, hT, "request exceeded our ExternalTimeout", 1)
 
-	// Verify the timeout was saved to cache with http.StatusRequestTimeout (408)
+	// Verify the timeout was saved to cache with -10 (tool-specific timeout code)
 	cR, ok := hT.refCache.Get("http://5.6.7.8")
 	if !ok {
 		t.Error("expected timeout to be cached when RetryCachedErrors is false, but it wasn't")
 	}
-	if cR.StatusCode != http.StatusRequestTimeout {
-		t.Errorf("expected status code %d (http.StatusRequestTimeout) for timeout, got %d", http.StatusRequestTimeout, cR.StatusCode)
+	if cR.StatusCode != -10 {
+		t.Errorf("expected status code -10 (timeout), got %d", cR.StatusCode)
 	}
 }
 

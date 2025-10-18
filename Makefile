@@ -1,7 +1,11 @@
 # Makefile
 # cSpell:ignore TESTFLAGS coverprofile gopath golangci ldflags covermode coverpkg gofmt benchmem
 
-.PHONY: build build-verify test test-race test-coverage test-ci test-bench lint clean install run fmt fmt-check vet check ci deps help
+.PHONY: build build-verify install run
+.PHONY: test test-race test-coverage test-ci test-bench
+.PHONY: test-tdd test-tdd-cache clean-cache refcache-check _test-tdd
+.PHONY: lint fmt fmt-check vet check ci
+.PHONY: clean deps help
 
 # Binary name
 BINARY := htmltest
@@ -16,6 +20,11 @@ LDFLAGS := -X main.version=$(VERSION) -X main.date=$(BUILD_DATE)
 
 # Test flags (can be overridden: make test TESTFLAGS="-v -run TestName")
 TESTFLAGS ?=
+
+# TDD variables (can be overridden)
+TEST_PKG ?= ./htmltest
+TEST_RUN ?= .
+REFCACHE := htmltest/tmp/.htmltest/refcache.json
 
 # Default target
 .DEFAULT_GOAL := help
@@ -67,6 +76,38 @@ test-bench:
 	@echo "Running benchmarks..."
 	@go test -bench=. -benchmem ./htmltest
 
+## clean-cache: Remove test cache files
+clean-cache:
+	@echo "Cleaning test cache..."
+	@rm -f $(REFCACHE)
+	@echo "Cache cleaned"
+
+## test-tdd: TDD mode - run specific test(s) with clean cache (use TEST_RUN to match tests).
+## Examples:
+##   make test-tdd TEST_RUN=TestTimeoutIsCached    # Run single test with clean cache
+##   make test-tdd TEST_RUN='.*Cache.*'            # Run all cache tests
+##   make test-tdd TEST_RUN=TestTimeout            # Run tests matching pattern
+##   make test-clean TEST_RUN=TestTimeout          # Same but without cache inspection
+##   make clean-cache                              # Just clean the cache
+test-tdd: clean-cache _test-tdd
+
+_test-tdd:
+	@echo "TDD mode: Running $(TEST_RUN) in $(TEST_PKG)..."
+	@go test -v -run $(TEST_RUN) $(TEST_PKG) || true
+	@echo ""
+	@echo "Test completed."
+
+refcache-check:
+	@echo "Refcache state:"
+	@if [ -f $(REFCACHE) ]; then \
+		echo "=== $(REFCACHE) ==="; \
+		cat $(REFCACHE) | python3 -m json.tool 2>/dev/null || cat $(REFCACHE); \
+	else \
+		echo "No refcache file created"; \
+	fi
+
+test-tdd-cache: clean-cache _test-tdd refcache-check
+
 ## lint: Run golangci-lint (requires golangci-lint to be installed)
 lint:
 	@echo "Running linter..."
@@ -77,8 +118,8 @@ lint:
 		exit 1; \
 	fi
 
-## clean: Remove build artifacts and temporary files
-clean:
+## clean: Remove build artifacts and temporary files (includes test cache)
+clean: clean-cache
 	@echo "Cleaning..."
 	@go clean
 	@rm -rf bin/
@@ -130,4 +171,11 @@ help:
 	@echo "$(BINARY) - Makefile commands:"
 	@echo ""
 	@sed -n 's/^##//p' $(MAKEFILE_LIST) | column -t -s ':' | sed -e 's/^/ /'
+	@echo ""
+	@echo "TDD Examples:"
+	@echo "  make test-tdd TEST_RUN=TestTimeoutIsCached    # Run single test with clean cache"
+	@echo "  make test-tdd TEST_RUN='.*Cache.*'            # Run all cache tests"
+	@echo "  make test-tdd TEST_RUN=TestTimeout            # Run tests matching pattern"
+	@echo "  make test-clean TEST_RUN=TestTimeout          # Same but without cache inspection"
+	@echo "  make clean-cache                              # Just clean the cache"
 
