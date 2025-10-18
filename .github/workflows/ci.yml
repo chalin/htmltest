@@ -1,6 +1,6 @@
 name: build
 
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 env:
   GO_VERSION: 1.21.4
@@ -63,7 +63,7 @@ jobs:
       - name: Build
         run: go build -ldflags "-X main.date=`date -u +%Y-%m-%dT%H:%M:%SZ` -X main.version=`git describe --tags`" -o bin/$BINARY_NAME -x main.go
       - name: Upload binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BINARY_NAME }}
           path: bin/${{ env.BINARY_NAME }}
@@ -114,7 +114,8 @@ jobs:
 
   docker-build:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    # if: startsWith(github.ref, 'refs/tags/')
+    if: false
     needs: [ test, build ]
     env:
       DOCKER_REPO: wjdp/htmltest
