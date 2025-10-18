@@ -149,3 +149,19 @@ Two modifications needed:
 - [ ] Implement discovery mode caching (CheckExternal: false)
 - [ ] Implement timeout caching (CheckExternal: true)
 - [ ] Add CacheAllExternal to README configuration table
+
+## Prep
+
+### Migration from 408
+
+Previously, timeouts were cached as `408` (HTTP Request Timeout). This is being
+changed to `-10` for clarity:
+
+- **Old**: `408` - Ambiguous (server response or client timeout?)
+- **New**: `-10` - Clearly a tool-specific timeout
+
+This change requires updating:
+
+1. Cache writing code (use `-10` instead of `408`)
+2. Cache reading code (handle both for backward compatibility)
+3. Tests that check for timeout status codes

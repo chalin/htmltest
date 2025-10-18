@@ -39,7 +39,8 @@ Update the `checkExternal()` function to accept cached results when:
 Add tests to verify:
 
 - Error status codes (404, etc.) are cached
-- By default (RetryCachedErrors=true), cached errors are retried (backward compatibility)
+- By default (RetryCachedErrors=true), cached errors are retried (backward
+  compatibility)
 - When `RetryCachedErrors: false`, cached errors are reused without retry
 - Cached errors still report as errors (not silently ignored)
 
@@ -67,7 +68,8 @@ mutex protection remains sufficient.
 
 ## Backward Compatibility
 
-- **Default behavior unchanged:** `RetryCachedErrors` defaults to `true` (retries errors)
+- **Default behavior unchanged:** `RetryCachedErrors` defaults to `true`
+  (retries errors)
 - **No existing tests will break:** No tests currently verify cached error retry
   behavior
 - **Opt-in feature:** Users must set to `false` to skip retries
@@ -84,6 +86,7 @@ mutex protection remains sufficient.
 ## To-dos
 
 - [x] Add RetryCachedErrors to Options struct and defaults
-- [x] Update checkExternal to accept all cached status codes when option disabled
+- [x] Update checkExternal to accept all cached status codes when option
+      disabled
 - [x] Add tests for cached error handling behavior (3 comprehensive tests)
 - [x] Document RetryCachedErrors option in README
