@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.21.4
+ARG GO_VERSION=1.25.3
 ARG TARGET=alpine:3.9
 
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS builder
