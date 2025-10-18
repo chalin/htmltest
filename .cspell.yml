@@ -20,6 +20,7 @@ words:
   - github
   - govcr
   - htmldoc
+  - htmlproofer
   - htmltest
   - imdario
   - ints
@@ -28,6 +29,7 @@ words:
   - preconnect
   - proofer
   - refcache
+  - regexs
   - rels
   - seborama
   - wjdp
