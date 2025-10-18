@@ -70,20 +70,34 @@ Example workflow:
 
 ## Implementation Steps (TDD Approach)
 
-### 1. Write Tests First
+**Incremental TDD**: Write one test at a time, implement, verify, then move to
+next.
+
+For each behavior in the matrix below:
+
+1. Write ONE test for that specific behavior
+2. Run test → **RED** (fails)
+3. Write minimal code to make it pass
+4. Run test → **GREEN** (passes)
+5. Cleanup/refactor if needed
+6. Move to next behavior
+
+### Test Order & Behaviors
+
+| #   | Behavior to Test    | Config                                             | Expected Result                  | Test Name                         |
+| --- | ------------------- | -------------------------------------------------- | -------------------------------- | --------------------------------- |
+| 1   | Default: no caching | `CheckExternal: false`, `CacheAllExternal: false`  | Nothing cached                   | `TestCacheAllExternalDisabled`    |
+| 2   | **Discovery mode**  | `CheckExternal: false`, `CacheAllExternal: true`   | Cache with `StatusUnchecked`     | `TestCacheAllExternalDiscovery`   |
+| 3   | **Timeout caching** | `CheckExternal: true`, `CacheAllExternal: true`    | Cache timeout as `StatusTimeout` | `TestCacheAllExternalTimeout`     |
+| 4   | Ignored URLs        | `CacheAllExternal: true`, `IgnoreURLs: [pattern]`  | Ignored URLs NOT cached          | `TestCacheAllExternalIgnored`     |
+| 5   | Query stripping     | `CacheAllExternal: true`, `StripQueryString: true` | Query stripped                   | `TestCacheAllExternalQueryString` |
+
+**Commands**: Use `make test-tdd TEST_RUN=<TestName>` or
+`make test-tdd-cache TEST_RUN=<TestName>`
+
+### 1. Write Tests (One at a Time)
 
 **File**: `htmltest/check-link-cache_test.go`
-
-Add test cases to verify:
-
-- **Discovery mode**: Links cached with `StatusUnchecked` when
-  `CheckExternal: false` and `CacheAllExternal: true`
-- **Default behavior**: Links NOT cached when `CacheAllExternal: false`
-- **Ignored URLs**: Ignored URLs still not cached even with
-  `CacheAllExternal: true`
-- **Query string handling**: Query string stripping applied correctly
-- **Timeout caching**: Timeouts cached with `StatusTimeout` when
-  `CheckExternal: true` and `CacheAllExternal: true`
 
 ### 2. Add Configuration Option
 
