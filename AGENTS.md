@@ -5,7 +5,8 @@ lastmod: 2025-10-18
 status: active
 ---
 
-This is the htmltest project - a fast HTML validation and link checker written in Go.
+This is the htmltest project - a fast HTML validation and link checker written
+in Go.
 
 ## Key Files to Reference
 
@@ -24,15 +25,16 @@ When starting a session or before making changes, review:
 
 ## Current Work
 
-Branch: dev/main
-Current feature: CacheAllExternal (see @docs/tasks/cache-unchecked-external-links.md)
+- Branch: dev/main
+- Current feature: CacheAllExternal (see
+  `@docs/tasks/cache-unchecked-external-links.md`)
 
 ## Testing Commands
 
 Examples:
+
 ```bash
 make test-tdd TEST_RUN=TestName        # Run specific test with clean cache
 make test-tdd TEST_RUN='.*Cache.*'     # Run all cache tests
 make test-tdd-cache TEST_RUN=TestName  # Same but shows cache state
 ```
-

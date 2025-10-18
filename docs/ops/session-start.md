@@ -8,7 +8,8 @@ cSpell:ignore: oneline
 
 # Session Start Checklist
 
-At the beginning of each work session, reference these key files to provide context:
+At the beginning of each work session, reference these key files to provide
+context:
 
 ## Essential Context Files
 
@@ -20,7 +21,8 @@ At the beginning of each work session, reference these key files to provide cont
 
 ## Current Work
 
-- `@docs/tasks/cache-unchecked-external-links.md` - CacheAllExternal feature (in progress)
+- `@docs/tasks/cache-unchecked-external-links.md` - CacheAllExternal feature (in
+  progress)
 - `@docs/tasks/migrate-status-codes.md` - Status code migration (completed)
 
 ## How to Use
@@ -31,7 +33,8 @@ At the start of a session, say:
 Review @AGENTS.md
 ```
 
-Cursor auto-loads `docs/AGENTS.md`, but explicitly reviewing ensures full context.
+Cursor auto-loads `docs/AGENTS.md`, but explicitly reviewing ensures full
+context.
 
 Then mention the specific task you're working on:
 
@@ -54,5 +57,5 @@ make help                     # Available commands
 
 1. **Status codes**: 0 = unchecked, -10 = timeout, >0 = HTTP codes
 2. **TDD workflow**: Use `make test-tdd` and `make test-tdd-cache`
-3. **Three config dimensions**: CheckExternal, RetryCachedErrors, CacheAllExternal
-
+3. **Three config dimensions**: CheckExternal, RetryCachedErrors,
+   CacheAllExternal
