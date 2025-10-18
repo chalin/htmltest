@@ -22,13 +22,13 @@ links to the cache file. This allows you to:
    separately
 
 Additionally, when checking is enabled (`CheckExternal: true`), this option also
-caches timeout errors (408), which were previously not cached.
+caches timeout errors (as `StatusTimeout`), which were previously not cached.
 
 Example workflow:
 
 - Run htmltest with `CheckExternal: false` and `CacheAllExternal: true` during
   development
-- External links are saved to refcache with status code 0 (unchecked)
+- External links are saved to refcache with `StatusUnchecked` (not checked)
 - Later, extract the list of unchecked links from the cache for validation or
   reporting
 - Optionally run htmltest with `CheckExternal: true` to validate cached links
@@ -46,24 +46,27 @@ Example workflow:
 
 ### Complete Behavior Matrix
 
-| CheckExternal | CacheAllExternal | RetryCachedErrors | Links Checked? | Errors Retried? | What Gets Cached   | Use Case                             |
-| ------------- | ---------------- | ----------------- | -------------- | --------------- | ------------------ | ------------------------------------ |
-| `true`        | `false`          | `true`            | ✓              | ✓               | 200, 404 (NOT 408) | **Default/Legacy**                   |
-| `true`        | `false`          | `false`           | ✓              | ✗               | 200, 404 (NOT 408) | Reuse errors, retry timeouts         |
-| `true`        | `true`           | `true`            | ✓              | ✓               | 200, 404, 408      | Cache timeouts, but retry            |
-| `true`        | `true`           | `false`           | ✓              | ✗               | 200, 404, 408      | **Fast re-runs** - cache & reuse all |
-| `false`       | `false`          | (N/A)             | ✗              | N/A             | Nothing            | **Default skip** - no cache          |
-| `false`       | `true`           | (N/A)             | ✗              | N/A             | 0 (unchecked)      | **Link discovery**                   |
+| CheckExternal | CacheAllExternal | RetryCachedErrors | Links Checked? | Errors Retried? | What Gets Cached  | Use Case                             |
+| ------------- | ---------------- | ----------------- | -------------- | --------------- | ----------------- | ------------------------------------ |
+| `true`        | `false`          | `true`            | ✓              | ✓               | 200, 4XX          | **Default/Legacy**                   |
+| `true`        | `false`          | `false`           | ✓              | ✗               | 200, 4XX          | Reuse errors, retry timeouts         |
+| `true`        | `true`           | `true`            | ✓              | ✓               | 200, 4XX, TSC[^1] | Cache timeouts, but retry            |
+| `true`        | `true`           | `false`           | ✓              | ✗               | 200, 404, TSC[^1] | **Fast re-runs** - cache & reuse all |
+| `false`       | `false`          | (N/A)             | ✗              | N/A             | Nothing           | **Default skip** - no cache          |
+| `false`       | `true`           | (N/A)             | ✗              | N/A             | unchecked links   | **Link discovery**                   |
+
+[^1]:
+    TSC = Tool-specific status code used by htmltest. See
+    `@docs/tasks/design.md` for details.
 
 ### Key Insights
 
 - `CacheAllExternal` extends caching behavior in **both** modes:
-  - When `CheckExternal: true` → Also caches timeouts (408)
-  - When `CheckExternal: false` → Caches discovered links (0)
+  - When `CheckExternal: true` → Also caches timeouts (as `StatusTimeout`)
+  - When `CheckExternal: false` → Caches discovered links (as `StatusUnchecked`)
 - When `CheckExternal: false`, `RetryCachedErrors` has no effect (nothing to
   retry)
-- Status code `0` indicates "unchecked/unknown" status
-- Status code `408` indicates timeout error
+- See `@docs/tasks/design.md` for status code details
 
 ## Implementation Steps (TDD Approach)
 
@@ -73,14 +76,14 @@ Example workflow:
 
 Add test cases to verify:
 
-- **Discovery mode**: Links cached with status 0 when `CheckExternal: false` and
-  `CacheAllExternal: true`
+- **Discovery mode**: Links cached with `StatusUnchecked` when
+  `CheckExternal: false` and `CacheAllExternal: true`
 - **Default behavior**: Links NOT cached when `CacheAllExternal: false`
 - **Ignored URLs**: Ignored URLs still not cached even with
   `CacheAllExternal: true`
 - **Query string handling**: Query string stripping applied correctly
-- **Timeout caching**: Timeouts cached as 408 when `CheckExternal: true` and
-  `CacheAllExternal: true`
+- **Timeout caching**: Timeouts cached with `StatusTimeout` when
+  `CheckExternal: true` and `CacheAllExternal: true`
 
 ### 2. Add Configuration Option
 
@@ -102,7 +105,7 @@ Two modifications needed:
 - Modify `checkExternal()` function (starting at line 129)
 - When `!hT.opts.CheckExternal` is true:
   - Check if `hT.opts.CacheAllExternal` is enabled
-  - If so, cache discovered links with status 0
+  - If so, cache discovered links with `StatusUnchecked`
   - Apply URL processing (strip query string if configured)
   - Skip ignored URLs (respect `isURLIgnored()` check)
 
@@ -111,7 +114,7 @@ Two modifications needed:
 - In timeout handling code (around line 201-210)
 - Change condition from `if !hT.opts.RetryCachedErrors` to
   `if hT.opts.CacheAllExternal`
-- This caches timeouts when CacheAllExternal is enabled
+- Save with `StatusTimeout` instead of not caching
 
 ### 4. Update Documentation
 
@@ -119,9 +122,10 @@ Two modifications needed:
 
 - Add new row in the configuration options table (around line 145, after
   `CheckExternal`)
-- Format: `| \`CacheAllExternal\` | Cache all external links including timeouts
-  (when checking) and unchecked links (when not checking). Useful for fast
-  re-runs and link discovery. | \`false\` |`
+- Description: Cache all external links including timeouts (when checking is
+  enabled) and unchecked links (when checking is disabled). Useful for fast
+  re-runs and link discovery.
+- Default: `false`
 
 ## Key Design Decisions
 
@@ -131,10 +135,10 @@ Two modifications needed:
   naturally
 - **Clear semantics**: "CacheAll" clearly means "cache everything, not just
   successes"
-- **Status codes**:
-  - `0` = unchecked/unknown (discovery mode)
-  - `408` = timeout error (check mode)
-  - Other codes = actual HTTP responses
+- **Status codes**: See `@docs/tasks/design.md` for details
+  - `StatusUnchecked` = unchecked/unknown (discovery mode)
+  - `StatusTimeout` = timeout error (check mode)
+  - Positive codes = actual HTTP responses
 - **Respects existing patterns**:
   - URL ignore patterns (`IgnoreURLs`)
   - Query string stripping (`StripQueryString`)
