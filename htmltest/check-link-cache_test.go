@@ -85,14 +85,13 @@ func TestTimeoutNotCachedByDefault(t *testing.T) {
 	tSkipShortExternal(t)
 
 	// First run: timeout occurs
-	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html",
-		map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "LogLevel": issues.LevelDebug})
+	opts := map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "LogLevel": issues.LevelDebug}
+	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html", opts)
 	tExpectIssueCount(t, hT, 1)
 	tExpectIssue(t, hT, "request exceeded our ExternalTimeout", 1)
 
 	// Second run: should retry (not use cache) because RetryCachedErrors is true (default)
-	hT2 := tTestFileOpts("fixtures/links/ip_timeout.html",
-		map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "LogLevel": issues.LevelDebug})
+	hT2 := tTestFileOpts("fixtures/links/ip_timeout.html", opts)
 	tExpectIssueCount(t, hT2, 1)
 
 	// Verify it retried (should see "fresh" and "hitting", not "from cache")
@@ -101,6 +100,26 @@ func TestTimeoutNotCachedByDefault(t *testing.T) {
 	}
 	if hT2.issueStore.MessageMatchCount("hitting") == 0 {
 		t.Error("timeout should be retried by default (should see 'hitting' message)")
+	}
+}
+
+// TestTimeoutNotCachedWithRetryCacheErrorsOnly : Test that timeouts are NOT cached
+// when ONLY RetryCachedErrors is false (without CacheAllExternal).
+// This verifies the cleanup: RetryCachedErrors no longer controls timeout caching.
+func TestTimeoutNotCachedWithRetryCacheErrorsOnly(t *testing.T) {
+	tSkipShortExternal(t)
+
+	// Run with RetryCachedErrors: false but CacheAllExternal: false (default)
+	// After cleanup, this should NOT cache timeouts
+	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html",
+		map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "RetryCachedErrors": false})
+	tExpectIssueCount(t, hT, 1)
+	tExpectIssue(t, hT, "request exceeded our ExternalTimeout", 1)
+
+	// Verify the timeout was NOT cached (new behavior after cleanup)
+	_, ok := hT.refCache.Get("http://5.6.7.8")
+	if ok {
+		t.Error("timeout should NOT be cached when only RetryCachedErrors is false (without CacheAllExternal)")
 	}
 }
 
@@ -124,7 +143,8 @@ func TestTimeoutIsCached(t *testing.T) {
 }
 
 // TestTimeoutCachedReused : Test that cached timeout results are reused on
-// subsequent runs without retrying the URL when RetryCachedErrors is false.
+// subsequent runs without retrying the URL when RetryCachedErrors is false and
+// CacheAllExternal is true. TODO: fix me.
 func TestTimeoutCachedReused(t *testing.T) {
 	tSkipShortExternal(t)
 

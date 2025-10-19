@@ -44,14 +44,30 @@ Example workflow:
 3. **`CacheAllExternal: true | false`** (NEW) - Whether to cache everything
    including timeouts and unchecked links
 
+### RetryCachedErrors behavior cleanup
+
+`RetryCachedErrors` currently conflates two concerns:
+
+1. Whether to retry cached errors (its intended purpose)
+2. Whether to cache timeouts (side effect when set to `false`)
+
+With `CacheAllExternal`, we can separate these orthogonal concerns:
+
+- `CacheAllExternal` controls **what gets cached** (just checked results, or
+  everything including timeouts/unchecked)
+- `RetryCachedErrors` controls **retry behavior only** (use cached errors, or
+  retry them)
+
+This cleanup must happen BEFORE implementing the discovery mode feature.
+
 ### Complete Behavior Matrix
 
 | CheckExternal | CacheAllExternal | RetryCachedErrors | Links Checked? | Errors Retried? | What Gets Cached  | Use Case                             |
 | ------------- | ---------------- | ----------------- | -------------- | --------------- | ----------------- | ------------------------------------ |
 | `true`        | `false`          | `true`            | ✓              | ✓               | 200, 4XX          | **Default/Legacy**                   |
-| `true`        | `false`          | `false`           | ✓              | ✗               | 200, 4XX          | Reuse errors, retry timeouts         |
+| `true`        | `false`          | `false`           | ✓              | ✗               | 200, 4XX          | Failed links are not retried         |
 | `true`        | `true`           | `true`            | ✓              | ✓               | 200, 4XX, TSC[^1] | Cache timeouts, but retry            |
-| `true`        | `true`           | `false`           | ✓              | ✗               | 200, 404, TSC[^1] | **Fast re-runs** - cache & reuse all |
+| `true`        | `true`           | `false`           | ✓              | ✗               | 200, 4XX, TSC[^1] | **Fast re-runs** - cache & reuse all |
 | `false`       | `false`          | (N/A)             | ✗              | N/A             | Nothing           | **Default skip** - no cache          |
 | `false`       | `true`           | (N/A)             | ✗              | N/A             | unchecked links   | **Link discovery**                   |
 
@@ -64,6 +80,8 @@ Example workflow:
 - `CacheAllExternal` extends caching behavior in **both** modes:
   - When `CheckExternal: true` → Also caches timeouts (as `StatusTimeout`)
   - When `CheckExternal: false` → Caches discovered links (as `StatusUnchecked`)
+- `RetryCachedErrors` now has clean, single-purpose semantics (retry vs. reuse
+  cached errors)
 - When `CheckExternal: false`, `RetryCachedErrors` has no effect (nothing to
   retry)
 - See `@docs/tasks/design.md` for status code details
@@ -166,27 +184,64 @@ Two modifications needed:
 
 ## Incremental Implementation Strategy
 
-### Increment 1: Test #1 - Default Behavior (Baseline)
+### Phase 0: Cleanup `RetryCachedErrors` Semantics
 
-**Purpose**: Establish regression test
+**Purpose**: Separate concerns before adding new functionality
+
+#### Step 0a: Add config option
+
+- Add `CacheAllExternal bool` to `Options` struct
+- Add default value `false` in `DefaultOptions()`
+- Run existing tests: Should PASS (option exists but unused)
+
+#### Step 0b: Update existing timeout tests
+
+- Update 3 existing tests to use `CacheAllExternal: true` instead of
+  `RetryCachedErrors: false`:
+  - `TestTimeoutIsCached`
+  - `TestTimeoutCachedReused`
+  - `TestTimeoutCachedMessage`
+- Run tests: RED (tests expect new behavior, code uses old)
+
+#### Step 0c: Refactor timeout caching code
+
+- In `check-link.go`, change timeout caching condition from:
+  - OLD: `if !hT.opts.RetryCachedErrors`
+  - NEW: `if hT.opts.CacheAllExternal`
+- Run tests: GREEN (existing tests verify behavior)
+
+#### Step 0d: Verify row 2 behavior
+
+- Ensure `TestTimeoutNotCachedByDefault` still passes
+- This test verifies row 2: `CacheAllExternal: false` +
+  `RetryCachedErrors: false` = NO timeout caching
+
+**Benefit**: Clean semantics established, existing tests ensure no regression
+
+---
+
+### Phase 1: Discovery Mode Feature
+
+#### Increment 1: Test #1 - Default Behavior (Baseline)
+
+**Purpose**: Establish regression test for row 5
 
 - Write test: Verify `CacheAllExternal: false` doesn't cache discovered links
 - Run test: Should PASS immediately (tests current behavior)
 - No code needed: This is baseline
 - Benefit: Protects against future regressions
 
-### Increment 2: Infrastructure + Test #2 - Discovery Mode
+#### Increment 2: Test #2 - Discovery Mode (Core Feature)
 
-**Purpose**: Add config option + core discovery feature
+**Purpose**: Implement row 6 - the main use case
 
-- Add config: `CacheAllExternal bool` to Options struct
 - Write test: Discovery mode caches with `StatusUnchecked`
-- Run test: RED (config exists but no caching code)
+- Run test: RED (config exists but no discovery caching code)
 - Implement: Add discovery caching in `checkExternal()`
 - Run test: GREEN
 - **This is the core feature**
 
-### Increment 3: Test #4 - Ignored URLs
+#### Increment 3: Test #4 - Ignored URLs
 
 **Purpose**: Verify edge case works
 
@@ -195,7 +250,7 @@ Two modifications needed:
 - If RED: Fix discovery code to respect ignore patterns
 - Benefit: Validates design assumption
 
-### Increment 4: Test #5 - Query String Stripping
+#### Increment 4: Test #5 - Query String Stripping
 
 **Purpose**: Verify edge case works
 
@@ -204,24 +259,35 @@ Two modifications needed:
 - If RED: Adjust operation order
 - Benefit: Validates design assumption
 
-### Increment 5: Test #3 - Timeout Caching
+#### Increment 5: Verify Row 3 & Row 4 Coverage
 
-**Purpose**: Complete second dimension of feature
+**Purpose**: Ensure timeout+retry combinations work
 
-- Write test: Timeouts cached when `CacheAllExternal: true`
-- Run test: RED (still checks `RetryCachedErrors`)
-- Implement: Change timeout caching condition
-- Run test: GREEN
-- **Completes the feature**
+- Verify `TestTimeoutCachedReused` covers row 4 (cache + reuse)
+- Consider if we need explicit test for row 3 (cache + retry)
+- Existing test infrastructure may already cover this
 
-**Rationale for order**: Infrastructure first (#2), validate assumptions while
-fresh (#4, #5), then complete with timeout caching (#3).
+**Rationale for order**: Clean up semantics first (Phase 0), then add
+infrastructure and core discovery feature (Phase 1), validate assumptions while
+fresh, verify complete matrix coverage.
 
 ## To-dos
 
-- [ ] Increment 1: Baseline test (default behavior)
-- [ ] Increment 2: Config option + discovery mode
+### Phase 0: Cleanup
+
+- [ ] Step 0a: Add `CacheAllExternal` config option
+- [ ] Step 0b: Update 3 existing timeout tests
+- [ ] Step 0c: Refactor timeout caching code
+- [ ] Step 0d: Verify row 2 behavior
+
+### Phase 1: Discovery Mode
+
+- [ ] Increment 1: Baseline test (default behavior - row 5)
+- [ ] Increment 2: Discovery mode test + implementation (row 6)
 - [ ] Increment 3: Ignored URLs edge case
 - [ ] Increment 4: Query stripping edge case
-- [ ] Increment 5: Timeout caching
+- [ ] Increment 5: Verify row 3 & 4 coverage
+
+### Documentation
+
 - [ ] Update README configuration table
