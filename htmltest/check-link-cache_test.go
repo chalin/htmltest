@@ -113,8 +113,7 @@ func TestTimeoutNotCachedWithRetryCacheErrorsOnly(t *testing.T) {
 	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html", opts)
 	tExpectIssueCount(t, hT, 1)
 	tExpectIssue(t, hT, "request exceeded our ExternalTimeout", 1)
-	// Verify the timeout was NOT cached (new behavior after cleanup)
-	tExpectNotCached(t, hT, "http://5.6.7.8")
+	tExpectCacheEmpty(t, hT)
 }
 
 // TestTimeoutIsCached : Test that URLs that timeout are saved to the refcache
@@ -166,9 +165,7 @@ func TestCacheAllExternalDisabled(t *testing.T) {
 	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/brokenLinkExternalSingle.html",
 		map[string]interface{}{"CheckExternal": false, "EnableCache": true})
 	tExpectIssueCount(t, hT, 0) // No errors since external checking is disabled
-
-	// Verify the external link was NOT cached (default behavior)
-	tExpectNotCached(t, hT, "http://www.asdo3IRJ395295jsingrkrg4.com")
+	tExpectCacheEmpty(t, hT)
 }
 
 // TestCacheAllExternalDiscovery : Test that external links ARE cached with
@@ -183,4 +180,20 @@ func TestCacheAllExternalDiscovery(t *testing.T) {
 
 	// Verify the external link WAS cached with StatusUnchecked
 	tExpectCached(t, hT, "http://www.asdo3IRJ395295jsingrkrg4.com", StatusUnchecked)
+}
+
+// TestCacheAllExternalAndIgnoredURLs : Test that ignored URLs are NOT cached in
+// discovery mode, verifying CacheAllExternal respects IgnoreURLs patterns.
+func TestCacheAllExternalAndIgnoredURLs(t *testing.T) {
+	fixture := "fixtures/links/brokenLinkExternalSingle.html"
+	opts := map[string]interface{}{
+		"CheckExternal":    false,
+		"EnableCache":      true,
+		"CacheAllExternal": true,
+		"IgnoreURLs":       []interface{}{"asd.*\\.com"},
+	}
+
+	hT := tTestFileOptsFromCleanOutputDir(fixture, opts)
+	tExpectIssueCount(t, hT, 0)
+	tExpectCacheEmpty(t, hT)
 }

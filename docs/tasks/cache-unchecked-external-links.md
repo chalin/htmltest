@@ -3,6 +3,7 @@ title: CacheAllExternal Feature
 date: 2025-10-18
 lastmod: 2025-10-19
 status: in-progress
+cSpell:ignore: statuscodes
 ---
 
 ## Status
@@ -11,9 +12,9 @@ status: in-progress
   caching now controlled by `CacheAllExternal`
 - ✅ **Test Infrastructure**: Migrated to `testify/assert`, cache helpers, fast
   test targets
-- ✅ **Phase 1 Increments 1-2 Complete**: Core discovery mode feature working!
-  External links cached with `StatusUnchecked`
-- 🚧 **Phase 1 In Progress**: Testing edge cases (ignored URLs, query stripping)
+- ✅ **Phase 1 Increments 0-2 Complete**: Core discovery mode + IgnoreURLs
+  interaction verified
+- 🚧 **Phase 1 In Progress**: Testing StripQueryString interaction
 
 # CacheAllExternal Feature
 
@@ -149,7 +150,7 @@ Behavior Matrix). Timeout caching (rows 3-4) was already implemented in Phase 0.
 | 2     | 1    | Row 6      | **Discovery mode**             | Check: false, All: true                          | Cache with `StatusUnchecked` | `TestCacheAllExternalDiscovery`       | ✅ Inc 1   |
 | 3     | —    | Row 3      | Timeout cached & retried       | Check: true, All: true, Retry: true              | Timeout retried on next run  | _(covered by existing timeout tests)_ | ✅ Phase 0 |
 | 4     | —    | Row 4      | Timeout cached & reused        | Check: true, All: true, Retry: false             | Timeout reused from cache    | `TestTimeoutCachedReused`             | ✅ Phase 0 |
-| 5     | 2    | —          | IgnoreURLs interaction         | Check: false, All: true, IgnoreURLs: `[pattern]` | Ignored URLs NOT cached      | `TestCacheAllExternalIgnored`         | TODO       |
+| 5     | 2    | —          | IgnoreURLs interaction         | Check: false, All: true, IgnoreURLs: `[pattern]` | Ignored URLs NOT cached      | `TestCacheAllExternalAndIgnoredURLs`  | ✅ Inc 2   |
 | 6     | 3    | —          | StripQueryString interaction   | Check: false, All: true, StripQueryString: true  | Query stripped before cache  | `TestCacheAllExternalQueryString`     | TODO       |
 
 [^Config]:
@@ -353,14 +354,20 @@ errors (network failures, cert errors) will be addressed in future phases.
 **Result**: Core discovery mode feature working! External links cached with
 `StatusUnchecked` when `CheckExternal: false` and `CacheAllExternal: true`.
 
-#### Increment 2: Test #5 - IgnoreURLs Feature Interaction
+#### Increment 2: Test #5 - IgnoreURLs Feature Interaction ✅
 
 **Purpose**: Verify CacheAllExternal respects IgnoreURLs patterns
 
-- Write test: Ignored URLs not cached
-- Run test: Likely PASS (existing `isURLIgnored()` should work)
-- If RED: Fix discovery code to respect ignore patterns
-- Benefit: Validates design assumption
+- ✅ Wrote `TestCacheAllExternalAndIgnoredURLs`
+- ✅ Created `tExpectCacheEmpty` helper (more robust than checking specific URL)
+- ✅ Test run: **GREEN** (URL processing order is correct - ignored URLs filtered
+  before caching)
+- ✅ No code changes needed
+- ✅ Updated `TestCacheAllExternalDisabled` and
+  `TestTimeoutNotCachedWithRetryCacheErrorsOnly` to use `tExpectCacheEmpty`
+
+**Result**: Feature interaction verified - ignored URLs correctly excluded from
+cache
 
 #### Increment 3: Test #6 - StripQueryString Feature Interaction
 
@@ -393,8 +400,8 @@ fresh, verify complete matrix coverage.
 
 - [x] Increment 0: Baseline test (default behavior - row 5) ✅
 - [x] Increment 1: Discovery mode test + implementation (row 6) ✅
-- [ ] Increment 2: Ignored URLs edge case
-- [ ] Increment 3: Query stripping edge case
+- [x] Increment 2: IgnoreURLs feature interaction ✅
+- [ ] Increment 3: StripQueryString feature interaction
 - [ ] Increment 4: Verify row 3 & 4 coverage
 
 ### Documentation

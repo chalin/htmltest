@@ -1,8 +1,10 @@
 package htmltest
 
 import (
+	"encoding/json"
 	"flag"
 	"os"
+	"path"
 	"testing"
 
 	"github.com/imdario/mergo"
@@ -56,4 +58,24 @@ func tExpectCached(t *testing.T, hT *HTMLTest, url string, statusCode ...int) {
 func tExpectNotCached(t *testing.T, hT *HTMLTest, url string) {
 	_, ok := hT.refCache.Get(url)
 	assert.False(t, ok, "URL should not be cached: "+url)
+}
+
+// tExpectCacheEmpty asserts that the refcache is empty.
+func tExpectCacheEmpty(t *testing.T, hT *HTMLTest) {
+	cachePath := path.Join(hT.opts.OutputDir, hT.opts.OutputCacheFile)
+	data, err := os.ReadFile(cachePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return // Cache file doesn't exist - that's empty!
+		}
+		t.Fatalf("Error reading cache file: %v", err)
+	}
+
+	// Parse JSON to check if empty
+	var cache map[string]interface{}
+	if err := json.Unmarshal(data, &cache); err != nil {
+		t.Fatalf("Cache file is not valid JSON: %v", err)
+	}
+
+	assert.Equal(t, 0, len(cache), "cache should be empty")
 }
