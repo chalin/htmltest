@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/wjdp/htmltest/issues"
 )
 
 // Tests for cache-related functionality
@@ -33,58 +32,46 @@ func TestExternalErrorCached(t *testing.T) {
 	hT := tTestFileOptsFromCleanOutputDir("fixtures/images/imageExternal404.html",
 		map[string]interface{}{"VCREnable": true, "EnableCache": true})
 	tExpectIssueCount(t, hT, 1)
-
-	// Verify the 404 was saved to cache
-	cR, ok := hT.refCache.Get("https://upload.wikimedia.org/wikipedia/en/404")
-	if !ok {
-		t.Error("expected 404 response to be cached, but it wasn't")
-	}
-	// Verify it's actually a 404
-	if cR.StatusCode != 404 {
-		t.Errorf("expected status code 404 in cache, got %d", cR.StatusCode)
-	}
+	tExpectCached(t, hT, "https://upload.wikimedia.org/wikipedia/en/404", 404)
 }
 
 // TestExternalErrorCachedRetried : Test that by default cached error responses
 // (404, etc.) are retried on subsequent runs.
 func TestExternalErrorCachedRetried(t *testing.T) {
+	fixture := "fixtures/images/imageExternal404.html"
+	opts := map[string]interface{}{"VCREnable": true, "EnableCache": true}
+
 	// First run: populate cache with 404
-	hT := tTestFileOptsFromCleanOutputDir("fixtures/images/imageExternal404.html",
-		map[string]interface{}{"VCREnable": true, "EnableCache": true})
+	hT := tTestFileOptsFromCleanOutputDir(fixture, opts)
 	tExpectIssueCount(t, hT, 1)
 
 	// Second run: WITH VCR - should retry even though 404 is cached (default behavior)
-	hT2 := tTestFileOpts("fixtures/images/imageExternal404.html",
-		map[string]interface{}{"VCREnable": true, "EnableCache": true, "LogLevel": issues.LevelDebug})
+	hT2 := tTestFileOpts(fixture, opts)
 	tExpectIssueCount(t, hT2, 1)
 
 	// Verify it did NOT use the cache (should see "fresh" not "from cache")
-	if hT2.issueStore.MessageMatchCount("from cache") > 0 {
-		t.Error("expected cached 404 to be retried (should NOT see 'from cache' message by default)")
-	}
-	if hT2.issueStore.MessageMatchCount("fresh") == 0 {
-		t.Error("expected cached 404 to be retried (should see 'fresh' message)")
-	}
+	tExpectIssue(t, hT2, "from cache", 0)
+	tExpectIssue(t, hT2, "fresh", 1)
 }
 
 // TestExternalBrokenRetryCachedErrorsDisabled : Test that URLs with non-OK
-// status are not retried when RetryCachedErrors is set to false.
-// Uses <q cite="..."> elements for variety.
+// status are not retried when RetryCachedErrors is false.
 func TestExternalBrokenRetryCachedErrorsDisabled(t *testing.T) {
-	// First run: populate cache with 404
-	hT := tTestFileOptsFromCleanOutputDir("fixtures/generic/citeBroken.html",
-		map[string]interface{}{"VCREnable": true, "EnableCache": true, "RetryCachedErrors": false})
-	tExpectIssueCount(t, hT, 4) // 4 broken citations in the fixture
+	fixture := "fixtures/images/imageExternal404.html"
+	opts := map[string]interface{}{"VCREnable": true, "EnableCache": true, "RetryCachedErrors": false}
 
-	// Second run: WITHOUT VCR - should use cached 404s, not retry (which would fail without VCR)
-	hT2 := tTestFileOpts("fixtures/generic/citeBroken.html",
-		map[string]interface{}{"EnableCache": true, "RetryCachedErrors": false, "LogLevel": issues.LevelDebug})
-	tExpectIssueCount(t, hT2, 4)
+	// First run WITH VCR: populate cache with 404
+	hT := tTestFileOptsFromCleanOutputDir(fixture, opts)
+	tExpectIssueCount(t, hT, 1)
+	tExpectCached(t, hT, "https://upload.wikimedia.org/wikipedia/en/404", 404)
 
-	// Verify it used the cache by checking for "from cache" messages
-	if hT2.issueStore.MessageMatchCount("from cache") == 0 {
-		t.Error("expected cached 404s to be reused (should see 'from cache' messages)")
-	}
+	// Second run: should use cached 404 (not retry because RetryCachedErrors is false)
+	hT2 := tTestFileOpts(fixture, opts)
+	tExpectIssueCount(t, hT2, 1)
+
+	// Verify it used the cache (not retried)
+	tExpectIssue(t, hT2, "from cache", 1)
+	tExpectIssue(t, hT2, "hitting", 0)
 }
 
 // ========================================
@@ -95,89 +82,70 @@ func TestExternalBrokenRetryCachedErrorsDisabled(t *testing.T) {
 // and are retried on every run. This ensures backward compatibility with the
 // original behavior.
 func TestTimeoutNotCachedByDefault(t *testing.T) {
+	fixture := "fixtures/links/ip_timeout.html"
 	tSkipShortExternal(t)
 
 	// First run: timeout occurs
-	opts := map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "LogLevel": issues.LevelDebug}
-	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html", opts)
+	opts := map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true}
+	hT := tTestFileOptsFromCleanOutputDir(fixture, opts)
 	tExpectIssueCount(t, hT, 1)
 	tExpectIssue(t, hT, "request exceeded our ExternalTimeout", 1)
 
 	// Second run: should retry (not use cache) because RetryCachedErrors is true (default)
-	hT2 := tTestFileOpts("fixtures/links/ip_timeout.html", opts)
+	hT2 := tTestFileOpts(fixture, opts)
 	tExpectIssueCount(t, hT2, 1)
 
 	// Verify it retried (should see "fresh" and "hitting", not "from cache")
-	if hT2.issueStore.MessageMatchCount("fresh") == 0 {
-		t.Error("timeout should be retried by default (should see 'fresh' message)")
-	}
-	if hT2.issueStore.MessageMatchCount("hitting") == 0 {
-		t.Error("timeout should be retried by default (should see 'hitting' message)")
-	}
+	tExpectIssue(t, hT2, "fresh", 1)
+	tExpectIssue(t, hT2, "hitting", 1)
+	tExpectIssue(t, hT2, "from cache", 0)
 }
 
 // TestTimeoutNotCachedWithRetryCacheErrorsOnly : Test that timeouts are NOT
 // cached when ONLY RetryCachedErrors is false (without CacheAllExternal). This
 // ensures that the legacy behavior of RetryCachedErrors is no longer active.
 func TestTimeoutNotCachedWithRetryCacheErrorsOnly(t *testing.T) {
+	opts := map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "RetryCachedErrors": false}
 	tSkipShortExternal(t)
-
-	// Run with RetryCachedErrors: false but CacheAllExternal: false (default)
-	// After cleanup, this should NOT cache timeouts
-	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html",
-		map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "RetryCachedErrors": false})
+	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html", opts)
 	tExpectIssueCount(t, hT, 1)
 	tExpectIssue(t, hT, "request exceeded our ExternalTimeout", 1)
-
 	// Verify the timeout was NOT cached (new behavior after cleanup)
-	_, ok := hT.refCache.Get("http://5.6.7.8")
-	if ok {
-		t.Error("timeout should NOT be cached when only RetryCachedErrors is false (without CacheAllExternal)")
-	}
+	tExpectNotCached(t, hT, "http://5.6.7.8")
 }
 
 // TestTimeoutIsCached : Test that URLs that timeout are saved to the refcache
 // when CacheAllExternal is true.
 func TestTimeoutIsCached(t *testing.T) {
 	tSkipShortExternal(t)
-	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html",
-		map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "CacheAllExternal": true})
+	opts := map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "CacheAllExternal": true}
+	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html", opts)
 	tExpectIssueCount(t, hT, 1)
 	tExpectIssue(t, hT, "request exceeded our ExternalTimeout", 1)
-
-	// Verify the timeout was saved to cache with StatusTimeout
-	cR, ok := hT.refCache.Get("http://5.6.7.8")
-	if !ok {
-		t.Error("expected timeout to be cached when RetryCachedErrors is false, but it wasn't")
-	}
-	if cR.StatusCode != StatusTimeout {
-		t.Errorf("expected status code %d (StatusTimeout), got %d", StatusTimeout, cR.StatusCode)
-	}
+	tExpectCached(t, hT, "http://5.6.7.8", StatusTimeout)
 }
 
 // TestTimeoutCachedReused : Test that cached timeout results are reused on
 // subsequent runs without retrying the URL when CacheAllExternal is true and
 // RetryCachedErrors is false.
 func TestTimeoutCachedReused(t *testing.T) {
+	fixture := "fixtures/links/ip_timeout.html"
+	opts := map[string]interface{}{"EnableCache": true, "CacheAllExternal": true, "RetryCachedErrors": false}
 	tSkipShortExternal(t)
 
 	// First run: cause and cache a timeout
-	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html",
-		map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "CacheAllExternal": true, "RetryCachedErrors": false})
+	opts["ExternalTimeout"] = 1
+	hT := tTestFileOptsFromCleanOutputDir(fixture, opts)
 	tExpectIssueCount(t, hT, 1)
 
 	// Second run: WITHOUT timeout set - should use cached timeout, not actually try the request
-	hT2 := tTestFileOpts("fixtures/links/ip_timeout.html",
-		map[string]interface{}{"EnableCache": true, "CacheAllExternal": true, "RetryCachedErrors": false, "LogLevel": issues.LevelDebug})
+	delete(opts, "ExternalTimeout")
+	hT2 := tTestFileOpts(fixture, opts)
 	tExpectIssueCount(t, hT2, 1)
 
 	// Verify it used the cache (should see "from cache" not "hitting")
-	if hT2.issueStore.MessageMatchCount("from cache") == 0 {
-		t.Error("expected cached timeout to be reused (should see 'from cache' message)")
-	}
-	if hT2.issueStore.MessageMatchCount("hitting") > 0 {
-		t.Error("should not retry when timeout is cached (CacheAllExternal=true, RetryCachedErrors=false)")
-	}
+	tExpectIssue(t, hT2, "from cache", 1)
+	tExpectIssue(t, hT2, "hitting", 0)
 }
 
 // TestTimeoutCachedMessage : Test that a URL that previously timed out will be
@@ -185,15 +153,15 @@ func TestTimeoutCachedReused(t *testing.T) {
 // RetryCachedErrors is false.
 func TestTimeoutCachedMessage(t *testing.T) {
 	tSkipShortExternal(t)
+	fixture := "fixtures/links/ip_timeout.html"
+	opts := map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "CacheAllExternal": true, "RetryCachedErrors": false}
 
 	// First run: cause and cache a timeout
-	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html",
-		map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "CacheAllExternal": true, "RetryCachedErrors": false})
+	hT := tTestFileOptsFromCleanOutputDir(fixture, opts)
 	tExpectIssueCount(t, hT, 1)
 
 	// Second run: with RetryCachedErrors disabled, should use cached timeout and report with "(cached)" message
-	hT2 := tTestFileOpts("fixtures/links/ip_timeout.html",
-		map[string]interface{}{"EnableCache": true, "CacheAllExternal": true, "RetryCachedErrors": false})
+	hT2 := tTestFileOpts(fixture, opts)
 	tExpectIssueCount(t, hT2, 1)
 	tExpectIssue(t, hT2, "request exceeded our ExternalTimeout (cached)", 1)
 }
