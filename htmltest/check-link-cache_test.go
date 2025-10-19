@@ -10,6 +10,10 @@ import (
 // Feature: RetryCachedErrors
 // Added by @chalin
 
+// ========================================
+// External Error Caching Tests
+// ========================================
+
 // TestExternalErrorCached : Test that URLs with HTTP error status codes (such
 // as 404) are saved to the refcache.
 func TestExternalErrorCached(t *testing.T) {
@@ -158,4 +162,24 @@ func TestTimeoutCachedMessage(t *testing.T) {
 		map[string]interface{}{"EnableCache": true, "RetryCachedErrors": false})
 	tExpectIssueCount(t, hT2, 1)
 	tExpectIssue(t, hT2, "request exceeded our ExternalTimeout (cached)", 1)
+}
+
+// ========================================
+// CacheAllExternal Tests
+// ========================================
+
+// TestCacheAllExternalDisabled : Test that external links are NOT cached when
+// CacheAllExternal is false (default behavior).
+// This is a regression test to ensure the default behavior doesn't change.
+func TestCacheAllExternalDisabled(t *testing.T) {
+	// Run with CheckExternal disabled and CacheAllExternal disabled (defaults)
+	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/brokenLinkExternalSingle.html",
+		map[string]interface{}{"CheckExternal": false, "EnableCache": true})
+	tExpectIssueCount(t, hT, 0) // No errors since external checking is disabled
+
+	// Verify the external link was NOT cached (default behavior)
+	_, ok := hT.refCache.Get("http://www.asdo3IRJ395295jsingrkrg4.com")
+	if ok {
+		t.Error("external links should NOT be cached when CacheAllExternal is false (default)")
+	}
 }

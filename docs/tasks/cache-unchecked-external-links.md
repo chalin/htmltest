@@ -160,10 +160,59 @@ Two modifications needed:
 - **No need for backward compat with dev/main features**: We can change
   `RetryCachedErrors` behavior if needed
 
+## Incremental Implementation Strategy
+
+### Increment 1: Test #1 - Default Behavior (Baseline)
+**Purpose**: Establish regression test
+
+- Write test: Verify `CacheAllExternal: false` doesn't cache discovered links
+- Run test: Should PASS immediately (tests current behavior)
+- No code needed: This is baseline
+- Benefit: Protects against future regressions
+
+### Increment 2: Infrastructure + Test #2 - Discovery Mode
+**Purpose**: Add config option + core discovery feature
+
+- Add config: `CacheAllExternal bool` to Options struct
+- Write test: Discovery mode caches with `StatusUnchecked`
+- Run test: RED (config exists but no caching code)
+- Implement: Add discovery caching in `checkExternal()`
+- Run test: GREEN
+- **This is the core feature**
+
+### Increment 3: Test #4 - Ignored URLs
+**Purpose**: Verify edge case works
+
+- Write test: Ignored URLs not cached
+- Run test: Likely PASS (existing `isURLIgnored()` should work)
+- If RED: Fix discovery code to respect ignore patterns
+- Benefit: Validates design assumption
+
+### Increment 4: Test #5 - Query String Stripping
+**Purpose**: Verify edge case works
+
+- Write test: Query strings stripped before caching
+- Run test: Likely PASS (existing logic should work)
+- If RED: Adjust operation order
+- Benefit: Validates design assumption
+
+### Increment 5: Test #3 - Timeout Caching
+**Purpose**: Complete second dimension of feature
+
+- Write test: Timeouts cached when `CacheAllExternal: true`
+- Run test: RED (still checks `RetryCachedErrors`)
+- Implement: Change timeout caching condition
+- Run test: GREEN
+- **Completes the feature**
+
+**Rationale for order**: Infrastructure first (#2), validate assumptions while fresh
+(#4, #5), then complete with timeout caching (#3).
+
 ## To-dos
 
-- [ ] Write test cases for CacheAllExternal feature (TDD)
-- [ ] Add CacheAllExternal field to Options struct and DefaultOptions()
-- [ ] Implement discovery mode caching (CheckExternal: false)
-- [ ] Implement timeout caching (CheckExternal: true)
-- [ ] Add CacheAllExternal to README configuration table
+- [ ] Increment 1: Baseline test (default behavior)
+- [ ] Increment 2: Config option + discovery mode
+- [ ] Increment 3: Ignored URLs edge case
+- [ ] Increment 4: Query stripping edge case
+- [ ] Increment 5: Timeout caching
+- [ ] Update README configuration table
