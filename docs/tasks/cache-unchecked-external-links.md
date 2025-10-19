@@ -1,7 +1,7 @@
 ---
 title: CacheAllExternal Feature
 date: 2025-10-18
-lastmod: 2025-10-18
+lastmod: 2025-10-19
 status: in-progress
 ---
 
@@ -99,6 +99,10 @@ For each behavior in the matrix below:
 
 **File**: `htmltest/check-link-cache_test.go`
 
+**Best Practice**: Use `tTestFileOptsFromCleanOutputDir()` for the first test
+call in each test function to ensure test isolation with a clean cache
+directory. Use `tTestFileOpts()` for subsequent calls within the same test.
+
 ### 2. Add Configuration Option
 
 **File**: `htmltest/options.go`
@@ -163,6 +167,7 @@ Two modifications needed:
 ## Incremental Implementation Strategy
 
 ### Increment 1: Test #1 - Default Behavior (Baseline)
+
 **Purpose**: Establish regression test
 
 - Write test: Verify `CacheAllExternal: false` doesn't cache discovered links
@@ -171,6 +176,7 @@ Two modifications needed:
 - Benefit: Protects against future regressions
 
 ### Increment 2: Infrastructure + Test #2 - Discovery Mode
+
 **Purpose**: Add config option + core discovery feature
 
 - Add config: `CacheAllExternal bool` to Options struct
@@ -181,6 +187,7 @@ Two modifications needed:
 - **This is the core feature**
 
 ### Increment 3: Test #4 - Ignored URLs
+
 **Purpose**: Verify edge case works
 
 - Write test: Ignored URLs not cached
@@ -189,6 +196,7 @@ Two modifications needed:
 - Benefit: Validates design assumption
 
 ### Increment 4: Test #5 - Query String Stripping
+
 **Purpose**: Verify edge case works
 
 - Write test: Query strings stripped before caching
@@ -197,6 +205,7 @@ Two modifications needed:
 - Benefit: Validates design assumption
 
 ### Increment 5: Test #3 - Timeout Caching
+
 **Purpose**: Complete second dimension of feature
 
 - Write test: Timeouts cached when `CacheAllExternal: true`
@@ -205,8 +214,8 @@ Two modifications needed:
 - Run test: GREEN
 - **Completes the feature**
 
-**Rationale for order**: Infrastructure first (#2), validate assumptions while fresh
-(#4, #5), then complete with timeout caching (#3).
+**Rationale for order**: Infrastructure first (#2), validate assumptions while
+fresh (#4, #5), then complete with timeout caching (#3).
 
 ## To-dos
 

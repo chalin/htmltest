@@ -17,7 +17,7 @@ import (
 // TestExternalErrorCached : Test that URLs with HTTP error status codes (such
 // as 404) are saved to the refcache.
 func TestExternalErrorCached(t *testing.T) {
-	hT := tTestFileOpts("fixtures/images/imageExternal404.html",
+	hT := tTestFileOptsFromCleanOutputDir("fixtures/images/imageExternal404.html",
 		map[string]interface{}{"VCREnable": true, "EnableCache": true})
 	tExpectIssueCount(t, hT, 1)
 
@@ -36,7 +36,7 @@ func TestExternalErrorCached(t *testing.T) {
 // (404, etc.) are retried on subsequent runs.
 func TestExternalErrorCachedRetried(t *testing.T) {
 	// First run: populate cache with 404
-	hT := tTestFileOpts("fixtures/images/imageExternal404.html",
+	hT := tTestFileOptsFromCleanOutputDir("fixtures/images/imageExternal404.html",
 		map[string]interface{}{"VCREnable": true, "EnableCache": true})
 	tExpectIssueCount(t, hT, 1)
 
@@ -59,7 +59,7 @@ func TestExternalErrorCachedRetried(t *testing.T) {
 // Uses <q cite="..."> elements for variety.
 func TestExternalBrokenRetryCachedErrorsDisabled(t *testing.T) {
 	// First run: populate cache with 404
-	hT := tTestFileOpts("fixtures/generic/citeBroken.html",
+	hT := tTestFileOptsFromCleanOutputDir("fixtures/generic/citeBroken.html",
 		map[string]interface{}{"VCREnable": true, "EnableCache": true, "RetryCachedErrors": false})
 	tExpectIssueCount(t, hT, 4) // 4 broken citations in the fixture
 
@@ -85,7 +85,7 @@ func TestTimeoutNotCachedByDefault(t *testing.T) {
 	tSkipShortExternal(t)
 
 	// First run: timeout occurs
-	hT := tTestFileOpts("fixtures/links/ip_timeout.html",
+	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html",
 		map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "LogLevel": issues.LevelDebug})
 	tExpectIssueCount(t, hT, 1)
 	tExpectIssue(t, hT, "request exceeded our ExternalTimeout", 1)
@@ -108,7 +108,7 @@ func TestTimeoutNotCachedByDefault(t *testing.T) {
 // when RetryCachedErrors is false.
 func TestTimeoutIsCached(t *testing.T) {
 	tSkipShortExternal(t)
-	hT := tTestFileOpts("fixtures/links/ip_timeout.html",
+	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html",
 		map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "RetryCachedErrors": false})
 	tExpectIssueCount(t, hT, 1)
 	tExpectIssue(t, hT, "request exceeded our ExternalTimeout", 1)
@@ -129,7 +129,7 @@ func TestTimeoutCachedReused(t *testing.T) {
 	tSkipShortExternal(t)
 
 	// First run: cause and cache a timeout
-	hT := tTestFileOpts("fixtures/links/ip_timeout.html",
+	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html",
 		map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "RetryCachedErrors": false})
 	tExpectIssueCount(t, hT, 1)
 
@@ -153,7 +153,7 @@ func TestTimeoutCachedMessage(t *testing.T) {
 	tSkipShortExternal(t)
 
 	// First run: cause and cache a timeout
-	hT := tTestFileOpts("fixtures/links/ip_timeout.html",
+	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html",
 		map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "RetryCachedErrors": false})
 	tExpectIssueCount(t, hT, 1)
 
