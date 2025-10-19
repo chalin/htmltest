@@ -199,10 +199,9 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 
 		if err != nil {
 			if strings.Contains(err.Error(), "Client.Timeout") {
-				// TODO: Will be controlled by CacheAllExternal option
-				// if !hT.opts.RetryCachedErrors {
-				// 	hT.refCache.Save(urlStr, StatusTimeout)
-				// }
+				if hT.opts.CacheAllExternal {
+					hT.refCache.Save(urlStr, StatusTimeout)
+				}
 				hT.issueStore.AddIssue(issues.Issue{
 					Level:     issueLevel,
 					Message:   "request exceeded our ExternalTimeout",

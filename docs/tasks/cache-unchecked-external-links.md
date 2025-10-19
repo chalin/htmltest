@@ -5,6 +5,14 @@ lastmod: 2025-10-19
 status: in-progress
 ---
 
+## Status
+
+- ✅ **Phase 0 Complete**: `RetryCachedErrors` semantics cleaned up, timeout
+  caching now controlled by `CacheAllExternal`
+- ✅ **Test Infrastructure**: Migrated `check-link-cache_test.go` to use
+  `testify/assert` for better assertion syntax
+- 🚧 **Phase 1 In Progress**: Ready to implement Discovery Mode feature
+
 # CacheAllExternal Feature
 
 ## Use Case
@@ -62,16 +70,16 @@ This cleanup must happen BEFORE implementing the discovery mode feature.
 
 ### Complete Behavior Matrix
 
-| CheckExternal | CacheAllExternal | RetryCachedErrors | Links Checked? | Errors Retried? | What Gets Cached  | Use Case                             |
-| ------------- | ---------------- | ----------------- | -------------- | --------------- | ----------------- | ------------------------------------ |
-| `true`        | `false`          | `true`            | ✓              | ✓               | 200, 4XX          | **Default/Legacy**                   |
-| `true`        | `false`          | `false`           | ✓              | ✗               | 200, 4XX          | Failed links are not retried         |
-| `true`        | `true`           | `true`            | ✓              | ✓               | 200, 4XX, TSC[^1] | Cache timeouts, but retry            |
-| `true`        | `true`           | `false`           | ✓              | ✗               | 200, 4XX, TSC[^1] | **Fast re-runs** - cache & reuse all |
-| `false`       | `false`          | (N/A)             | ✗              | N/A             | Nothing           | **Default skip** - no cache          |
-| `false`       | `true`           | (N/A)             | ✗              | N/A             | unchecked links   | **Link discovery**                   |
+| CheckExternal | CacheAllExternal | RetryCachedErrors | Links Checked? | Errors Retried? | What Gets Cached    | Use Case                             |
+| ------------- | ---------------- | ----------------- | -------------- | --------------- | ------------------- | ------------------------------------ |
+| `true`        | `false`          | `true`            | ✓              | ✓               | 200, 4XX            | **Default/Legacy**                   |
+| `true`        | `false`          | `false`           | ✓              | ✗               | 200, 4XX            | Failed links are not retried         |
+| `true`        | `true`           | `true`            | ✓              | ✓               | 200, 4XX, TSC[^TSC] | Cache timeouts, but retry            |
+| `true`        | `true`           | `false`           | ✓              | ✗               | 200, 4XX, TSC[^TSC] | **Fast re-runs** - cache & reuse all |
+| `false`       | `false`          | (N/A)             | ✗              | N/A             | Nothing             | **Default skip** - no cache          |
+| `false`       | `true`           | (N/A)             | ✗              | N/A             | unchecked links     | **Link discovery**                   |
 
-[^1]:
+[^TSC]:
     TSC = Tool-specific status code used by htmltest. See
     `@docs/tasks/design.md` for details.
 
@@ -102,16 +110,27 @@ For each behavior in the matrix below:
 
 ### Test Order & Behaviors
 
-| #   | Behavior to Test    | Config                                             | Expected Result                  | Test Name                         |
-| --- | ------------------- | -------------------------------------------------- | -------------------------------- | --------------------------------- |
-| 1   | Default: no caching | `CheckExternal: false`, `CacheAllExternal: false`  | Nothing cached                   | `TestCacheAllExternalDisabled`    |
-| 2   | **Discovery mode**  | `CheckExternal: false`, `CacheAllExternal: true`   | Cache with `StatusUnchecked`     | `TestCacheAllExternalDiscovery`   |
-| 3   | **Timeout caching** | `CheckExternal: true`, `CacheAllExternal: true`    | Cache timeout as `StatusTimeout` | `TestCacheAllExternalTimeout`     |
-| 4   | Ignored URLs        | `CacheAllExternal: true`, `IgnoreURLs: [pattern]`  | Ignored URLs NOT cached          | `TestCacheAllExternalIgnored`     |
-| 5   | Query stripping     | `CacheAllExternal: true`, `StripQueryString: true` | Query stripped                   | `TestCacheAllExternalQueryString` |
+Phase 1 focuses on implementing **Discovery Mode** (rows 5-6 from Complete
+Behavior Matrix). Timeout caching (rows 3-4) was already implemented in Phase 0.
+
+| #   | Matrix Row | Behavior to Test            | CheckExternal-related config[^Config]            | Expected Result              | Test Name                             | Status     |
+| --- | ---------- | --------------------------- | ------------------------------------------------ | ---------------------------- | ------------------------------------- | ---------- |
+| 1   | Row 5      | Default: no caching         | Check: false, All: false                         | Nothing cached               | `TestCacheAllExternalDisabled`        | ✅ Exists  |
+| 2   | Row 6      | **Discovery mode**          | Check: false, All: true                          | Cache with `StatusUnchecked` | `TestCacheAllExternalDiscovery`       | TODO       |
+| 3   | Row 3      | Timeout cached & retried    | Check: true, All: true, Retry: true              | Timeout retried on next run  | _(covered by existing timeout tests)_ | ✅ Phase 0 |
+| 4   | Row 4      | Timeout cached & reused     | Check: true, All: true, Retry: false             | Timeout reused from cache    | `TestTimeoutCachedReused`             | ✅ Phase 0 |
+| 5   | —          | Ignored URLs (edge case)    | Check: false, All: true, IgnoreURLs: `[pattern]` | Ignored URLs NOT cached      | `TestCacheAllExternalIgnored`         | TODO       |
+| 6   | —          | Query stripping (edge case) | Check: false, All: true, StripQueryString: true  | Query stripped before cache  | `TestCacheAllExternalQueryString`     | TODO       |
+
+[^Config]:
+    Abbreviations: `Check` = `CheckExternal`, `All` = `CacheAllExternal`,
+    `Retry` = `RetryCachedErrors`.
 
 **Commands**: Use `make test-tdd TEST_RUN=<TestName>` or
 `make test-tdd-cache TEST_RUN=<TestName>`
+
+**Note**: Phase 1 focuses on discovery mode (row 6) and its edge cases. Rows 1-4
+from the Complete Behavior Matrix are already covered by existing tests.
 
 ### 1. Write Tests (One at a Time)
 
@@ -184,39 +203,63 @@ Two modifications needed:
 
 ## Incremental Implementation Strategy
 
-### Phase 0: Cleanup `RetryCachedErrors` Semantics
+### Phase 0: Cleanup `RetryCachedErrors` Semantics ✅ COMPLETE
 
 **Purpose**: Separate concerns before adding new functionality
 
-#### Step 0a: Add config option
+**Step 0.1**: Write test for new semantics
 
-- Add `CacheAllExternal bool` to `Options` struct
-- Add default value `false` in `DefaultOptions()`
-- Run existing tests: Should PASS (option exists but unused)
+- ✅ Created `TestTimeoutNotCachedWithRetryCacheErrorsOnly` - verifies timeouts
+  are NOT cached when only `RetryCachedErrors: false` (without
+  `CacheAllExternal`)
+- ✅ Test run: **GREEN** (existing code already has correct behavior for this
+  case)
 
-#### Step 0b: Update existing timeout tests
+**Step 0.2**: Update existing test to expect new behavior (RED)
 
-- Update 3 existing tests to use `CacheAllExternal: true` instead of
-  `RetryCachedErrors: false`:
-  - `TestTimeoutIsCached`
-  - `TestTimeoutCachedReused`
-  - `TestTimeoutCachedMessage`
-- Run tests: RED (tests expect new behavior, code uses old)
+- ✅ Updated `TestTimeoutIsCached` to use `CacheAllExternal: true` instead of
+  `RetryCachedErrors: false`
+- ✅ Test cannot run yet (references non-existent option)
 
-#### Step 0c: Refactor timeout caching code
+**Step 0.3**: Change implementation to use new option (RED)
 
-- In `check-link.go`, change timeout caching condition from:
-  - OLD: `if !hT.opts.RetryCachedErrors`
-  - NEW: `if hT.opts.CacheAllExternal`
-- Run tests: GREEN (existing tests verify behavior)
+- ✅ Changed `check-link.go` timeout caching condition from
+  `if !hT.opts.RetryCachedErrors` to `if hT.opts.CacheAllExternal`
+- ✅ Result: **Compilation error** - option doesn't exist yet
 
-#### Step 0d: Verify row 2 behavior
+**Step 0.4**: Add option to make code compile (GREEN)
 
-- Ensure `TestTimeoutNotCachedByDefault` still passes
-- This test verifies row 2: `CacheAllExternal: false` +
-  `RetryCachedErrors: false` = NO timeout caching
+- ✅ Added `CacheAllExternal bool` to `Options` struct (`htmltest/options.go`)
+- ✅ Added default value `"CacheAllExternal": false` in `DefaultOptions()`
+- ✅ Test run: **GREEN** - code compiles and test passes
 
-**Benefit**: Clean semantics established, existing tests ensure no regression
+**Step 0.5**: Update remaining timeout tests
+
+- ✅ Updated `TestTimeoutCachedReused` to use `CacheAllExternal: true`
+- ✅ Updated `TestTimeoutCachedMessage` to use `CacheAllExternal: true`
+- ✅ All cache tests: **GREEN**
+
+**Step 0.6**: Add sanity check test
+
+- ✅ Created `TestCacheOptions` to verify default option values
+- ✅ Test run: **GREEN**
+- ✅ Full test suite: All packages pass
+
+**Result**: Clean semantics established, timeout caching now controlled by
+`CacheAllExternal` (not `RetryCachedErrors`), all tests passing, no regression
+
+**Key TDD Insight**: We changed the implementation BEFORE the option existed,
+causing a compilation error (deep RED), then added just enough to compile and
+pass (GREEN)
+
+**Infrastructure Improvement**: Testify migration
+
+- ✅ Migrated `check-link-cache_test.go` from `go-assert` to
+  `github.com/stretchr/testify/assert`
+- ✅ Benefits: Industry-standard library, better error messages, active
+  maintenance
+- ✅ All existing tests continue to pass
+- ✅ New tests use cleaner assertion syntax: `assert.Equal(t, expected, actual)`
 
 ---
 
