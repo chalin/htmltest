@@ -2,8 +2,8 @@
 # cSpell:ignore TESTFLAGS coverprofile gopath golangci ldflags covermode coverpkg gofmt benchmem
 
 .PHONY: build build-verify install run
-.PHONY: test test-race test-coverage test-ci test-bench
-.PHONY: test-tdd test-tdd-cache clean-cache refcache-check _test-tdd
+.PHONY: test test-fast test-race test-coverage test-ci test-bench
+.PHONY: test-tdd test-tdd-fast test-tdd-cache clean-cache refcache-check _test-tdd
 .PHONY: lint fmt fmt-check vet check ci
 .PHONY: clean deps help
 
@@ -48,18 +48,24 @@ build-verify: build
 
 ## test: Run all tests (use TESTFLAGS to pass additional flags, e.g., make test TESTFLAGS="-v")
 test:
-	@echo "Running tests..."
-	@go test $(TESTFLAGS) ./...
+	@echo "Running ALL tests (includes slow and external tests)..."
+	@go test ./... $(TESTFLAGS)
+
+## test-fast: Run all tests but skip slow ones (timeout waits)
+test-fast:
+	@echo "Running tests (skipping slow tests)..."
+	@go test ./htmldoc ./issues ./refcache
+	@go test ./htmltest -skip-slow=true
 
 ## test-race: Run tests with race detector (recommended)
 test-race:
-	@echo "Running tests with race detector..."
+	@echo "Running tests with race detector (includes slow and external tests)..."
 	@go test -v -race ./...
 
 ## test-coverage: Generate and display test coverage
 test-coverage:
-	@echo "Generating coverage report..."
-	@go test $(TESTFLAGS) -coverprofile=coverage.txt ./...
+	@echo "Generating coverage report (includes slow and external tests)..."
+	@go test -coverprofile=coverage.txt ./... $(TESTFLAGS)
 	@go tool cover -func=coverage.txt
 	@echo ""
 	@echo "To view HTML coverage report, run: go tool cover -html=coverage.txt"
@@ -84,16 +90,21 @@ clean-cache:
 
 ## test-tdd: TDD mode - run specific test(s) with clean cache (use TEST_RUN to match tests).
 ## Examples:
-##   make test-tdd TEST_RUN=TestTimeoutIsCached    # Run single test with clean cache
-##   make test-tdd TEST_RUN='.*Cache.*'            # Run all cache tests
-##   make test-tdd TEST_RUN=TestTimeout            # Run tests matching pattern
-##   make test-clean TEST_RUN=TestTimeout          # Same but without cache inspection
-##   make clean-cache                              # Just clean the cache
+##   make test-tdd TEST_RUN=TestTimeoutIsCached                      # Run single test
+##   make test-tdd TEST_RUN='.*Cache.*'                              # Run all cache tests
+##   make test-tdd-fast TEST_RUN='.*Cache.*'                         # Fast mode (skip slow tests)
+##   make test-tdd TEST_RUN='.*Cache.*' TESTFLAGS=-skip-slow=true    # Same as -fast
+##   make test-tdd-cache TEST_RUN=TestTimeout                        # With cache inspection
+##   make clean-cache                                                # Just clean the cache
 test-tdd: clean-cache _test-tdd
+
+## test-tdd-fast: Fast TDD mode - same as test-tdd but skips slow tests
+test-tdd-fast:
+	@$(MAKE) test-tdd TESTFLAGS=-skip-slow=true TEST_RUN="$(TEST_RUN)" TEST_PKG="$(TEST_PKG)"
 
 _test-tdd:
 	@echo "TDD mode: Running $(TEST_RUN) in $(TEST_PKG)..."
-	@go test -v -run $(TEST_RUN) $(TEST_PKG) || true
+	@go test -v -run $(TEST_RUN) $(TEST_PKG) $(TESTFLAGS) || true
 	@echo ""
 	@echo "Test completed."
 

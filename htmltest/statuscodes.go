@@ -11,8 +11,11 @@ For details, see @docs/tasks/migrate-status-codes.md
 */
 
 const (
-	StatusUnchecked = 0
-	StatusTimeout   = -10
+	StatusUnchecked    = 0
+	StatusTimeout      = -10
+	StatusNetworkError = -20 // DNS failures, connection refused, etc.
+	StatusCertError    = -30 // Certificate validation errors (x509, expired, invalid, etc.)
+	StatusClientError  = -40 // Generic HTTP client errors
 )
 
 func IsHTTPStatus(code int) bool {

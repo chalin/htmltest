@@ -11,6 +11,7 @@ require (
 	github.com/golangplus/sort v1.0.0 // indirect
 	github.com/imdario/mergo v0.3.11
 	github.com/seborama/govcr v4.5.0+incompatible // indirect
+	github.com/stretchr/testify v1.11.1
 	golang.org/x/net v0.17.0
 	gopkg.in/seborama/govcr.v4 v4.5.0
 	gopkg.in/yaml.v2 v2.4.0

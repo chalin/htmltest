@@ -68,12 +68,13 @@ type Options struct {
 	StripQueryString   bool
 	StripQueryExcludes []interface{}
 
-	EnableCache     bool
-	EnableLog       bool
-	OutputDir       string
-	OutputCacheFile string
-	OutputLogFile   string
-	CacheExpires    string // Accepts golang time period strings, hours (16h) is really only useful option
+	EnableCache      bool
+	CacheAllExternal bool
+	EnableLog        bool
+	OutputDir        string
+	OutputCacheFile  string
+	OutputLogFile    string
+	CacheExpires     string // Accepts golang time period strings, hours (16h) is really only useful option
 
 	// --- Internals below here ---
 	NoRun     bool   // When true does not run tests, used to inspect state in unit tests
@@ -140,12 +141,13 @@ func DefaultOptions() map[string]interface{} {
 		"StripQueryString":   true,
 		"StripQueryExcludes": []interface{}{"fonts.googleapis.com"},
 
-		"EnableCache":     true,
-		"EnableLog":       true,
-		"OutputDir":       path.Join("tmp", ".htmltest"),
-		"OutputCacheFile": "refcache.json",
-		"OutputLogFile":   "htmltest.log",
-		"CacheExpires":    "336h",
+		"EnableCache":      true,
+		"CacheAllExternal": false,
+		"EnableLog":        true,
+		"OutputDir":        path.Join("tmp", ".htmltest"),
+		"OutputCacheFile":  "refcache.json",
+		"OutputLogFile":    "htmltest.log",
+		"CacheExpires":     "336h",
 
 		"NoRun":     false,
 		"VCREnable": false,

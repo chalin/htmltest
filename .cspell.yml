@@ -33,4 +33,6 @@ words:
   - regexs
   - rels
   - seborama
+  - stretchr
+  - TESTFLAGS
   - wjdp

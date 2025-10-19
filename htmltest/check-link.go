@@ -137,7 +137,9 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 			Message:   "skipping external check",
 			Reference: ref,
 		})
-		return
+		if !hT.opts.CacheAllExternal {
+			return
+		}
 	}
 
 	urlStr := ref.URLString()
@@ -150,6 +152,17 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 	if hT.opts.StripQueryString && !InList(hT.opts.StripQueryExcludes, urlStr) {
 		urlStr = htmldoc.URLStripQueryString(urlStr)
 	}
+
+	// Discovery mode: cache as unchecked and return early
+	if !hT.opts.CheckExternal {
+		// Invariant: CacheAllExternal must be true, otherwise would have returned earlier
+		if !hT.opts.CacheAllExternal {
+			panic("Invariant violation: CacheAllExternal should be true")
+		}
+		hT.refCache.Save(urlStr, StatusUnchecked)
+		return
+	}
+
 	var statusCode int
 
 	cR, isCached := hT.refCache.Get(urlStr)
@@ -199,7 +212,7 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 
 		if err != nil {
 			if strings.Contains(err.Error(), "Client.Timeout") {
-				if !hT.opts.RetryCachedErrors {
+				if hT.opts.CacheAllExternal {
 					hT.refCache.Save(urlStr, StatusTimeout)
 				}
 				hT.issueStore.AddIssue(issues.Issue{
@@ -211,6 +224,9 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 			}
 
 			if certErr, ok := err.(*url.Error).Err.(x509.UnknownAuthorityError); ok {
+				if hT.opts.CacheAllExternal {
+					hT.refCache.Save(urlStr, StatusCertError)
+				}
 				err = validateCertChain(certErr.Cert)
 				if err == nil {
 					hT.issueStore.AddIssue(issues.Issue{
@@ -224,6 +240,9 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 
 			// More generic, should be kept below more specific cases
 			if strings.Contains(err.Error(), "dial tcp") {
+				if hT.opts.CacheAllExternal {
+					hT.refCache.Save(urlStr, StatusNetworkError)
+				}
 				// Remove long prefix
 				prefix := "Get " + urlStr + ": dial tcp: lookup "
 				cleanedMessage := strings.TrimPrefix(err.Error(), prefix)
@@ -237,6 +256,14 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 			}
 
 			// Unhandled client error, return generic error
+			if hT.opts.CacheAllExternal {
+				statusCode := StatusClientError
+				if strings.Contains(err.Error(), "x509:") {
+					statusCode = StatusCertError
+				}
+				hT.refCache.Save(urlStr, statusCode)
+			}
+
 			hT.issueStore.AddIssue(issues.Issue{
 				Level:     issueLevel,
 				Message:   err.Error(),
@@ -261,6 +288,24 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 		hT.issueStore.AddIssue(issues.Issue{
 			Level:     issues.LevelDebug,
 			Message:   http.StatusText(statusCode),
+			Reference: ref,
+		})
+	case StatusCertError:
+		hT.issueStore.AddIssue(issues.Issue{
+			Level:     issueLevel,
+			Message:   "certificate error (cached)",
+			Reference: ref,
+		})
+	case StatusClientError:
+		hT.issueStore.AddIssue(issues.Issue{
+			Level:     issueLevel,
+			Message:   "client error (cached)",
+			Reference: ref,
+		})
+	case StatusNetworkError:
+		hT.issueStore.AddIssue(issues.Issue{
+			Level:     issueLevel,
+			Message:   "network error (cached)",
 			Reference: ref,
 		})
 	case StatusTimeout:
