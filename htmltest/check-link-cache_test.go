@@ -197,3 +197,24 @@ func TestCacheAllExternalAndIgnoredURLs(t *testing.T) {
 	tExpectIssueCount(t, hT, 0)
 	tExpectCacheEmpty(t, hT)
 }
+
+// TestCacheAllExternalQueryString : Test that query strings are stripped before
+// caching in discovery mode, verifying CacheAllExternal works with StripQueryString.
+func TestCacheAllExternalQueryString(t *testing.T) {
+	fixture := "fixtures/links/check_just_once.html"
+	opts := map[string]interface{}{
+		"CheckExternal":    false,
+		"EnableCache":      true,
+		"CacheAllExternal": true,
+		"StripQueryString": true,
+	}
+
+	hT := tTestFileOptsFromCleanOutputDir(fixture, opts)
+	tExpectIssueCount(t, hT, 0)
+
+	// Verify the URL was cached WITHOUT the query string
+	tExpectCached(t, hT, "https://github.com/contact", StatusUnchecked)
+
+	// Verify the URL WITH query string is NOT in cache (proves stripping happened)
+	tExpectNotCached(t, hT, "https://github.com/contact?form%5Bsubject%5D=New+Assigned+Events")
+}

@@ -12,9 +12,9 @@ cSpell:ignore: statuscodes
   caching now controlled by `CacheAllExternal`
 - ✅ **Test Infrastructure**: Migrated to `testify/assert`, cache helpers, fast
   test targets
-- ✅ **Phase 1 Increments 0-2 Complete**: Core discovery mode + IgnoreURLs
-  interaction verified
-- 🚧 **Phase 1 In Progress**: Testing StripQueryString interaction
+- ✅ **Phase 1 Increments 0-3 Complete**: Core discovery mode + feature
+  interactions verified (IgnoreURLs, StripQueryString)
+- 🚧 **Phase 1 In Progress**: Verifying timeout test coverage (Increment 4)
 
 # CacheAllExternal Feature
 
@@ -73,14 +73,14 @@ This cleanup must happen BEFORE implementing the discovery mode feature.
 
 ### Complete Behavior Matrix
 
-| CheckExternal | CacheAllExternal | RetryCachedErrors | Links Checked? | Errors Retried? | What Gets Cached    | Use Case                             |
-| ------------- | ---------------- | ----------------- | -------------- | --------------- | ------------------- | ------------------------------------ |
-| `true`        | `false`          | `true`            | ✓              | ✓               | 200, 4XX            | **Default/Legacy**                   |
-| `true`        | `false`          | `false`           | ✓              | ✗               | 200, 4XX            | Failed links are not retried         |
-| `true`        | `true`           | `true`            | ✓              | ✓               | 200, 4XX, TSC[^TSC] | Cache timeouts, but retry            |
-| `true`        | `true`           | `false`           | ✓              | ✗               | 200, 4XX, TSC[^TSC] | **Fast re-runs** - cache & reuse all |
-| `false`       | `false`          | (N/A)             | ✗              | N/A             | Nothing             | **Default skip** - no cache          |
-| `false`       | `true`           | (N/A)             | ✗              | N/A             | unchecked links     | **Link discovery**                   |
+| Row | CheckExternal | CacheAllExternal | RetryCachedErrors | Links Checked? | Errors Retried? | What Gets Cached    | Use Case                             |
+| --- | ------------- | ---------------- | ----------------- | -------------- | --------------- | ------------------- | ------------------------------------ |
+| 1   | `true`        | `false`          | `true`            | ✓              | ✓               | 200, 4XX            | **Default/Legacy**                   |
+| 2   | `true`        | `false`          | `false`           | ✓              | ✗               | 200, 4XX            | Failed links are not retried         |
+| 3   | `true`        | `true`           | `true`            | ✓              | ✓               | 200, 4XX, TSC[^TSC] | Cache timeouts, but retry            |
+| 4   | `true`        | `true`           | `false`           | ✓              | ✗               | 200, 4XX, TSC[^TSC] | **Fast re-runs** - cache & reuse all |
+| 5   | `false`       | `false`          | (N/A)             | ✗              | N/A             | Nothing             | **Default skip** - no cache          |
+| 6   | `false`       | `true`           | (N/A)             | ✗              | N/A             | unchecked links     | **Link discovery**                   |
 
 [^TSC]:
     TSC = Tool-specific status code used by htmltest. See
@@ -144,14 +144,16 @@ For each behavior in the matrix below:
 Phase 1 focuses on implementing **Discovery Mode** (rows 5-6 from Complete
 Behavior Matrix). Timeout caching (rows 3-4) was already implemented in Phase 0.
 
-| Test# | Incr | Matrix Row | Behavior to Test               | CheckExternal-related config[^Config]            | Expected Result              | Test Name                             | Status     |
-| ----- | ---- | ---------- | ------------------------------ | ------------------------------------------------ | ---------------------------- | ------------------------------------- | ---------- |
-| 1     | 0    | Row 5      | Default: no caching            | Check: false, All: false                         | Nothing cached               | `TestCacheAllExternalDisabled`        | ✅ Inc 0   |
-| 2     | 1    | Row 6      | **Discovery mode**             | Check: false, All: true                          | Cache with `StatusUnchecked` | `TestCacheAllExternalDiscovery`       | ✅ Inc 1   |
-| 3     | —    | Row 3      | Timeout cached & retried       | Check: true, All: true, Retry: true              | Timeout retried on next run  | _(covered by existing timeout tests)_ | ✅ Phase 0 |
-| 4     | —    | Row 4      | Timeout cached & reused        | Check: true, All: true, Retry: false             | Timeout reused from cache    | `TestTimeoutCachedReused`             | ✅ Phase 0 |
-| 5     | 2    | —          | IgnoreURLs interaction         | Check: false, All: true, IgnoreURLs: `[pattern]` | Ignored URLs NOT cached      | `TestCacheAllExternalAndIgnoredURLs`  | ✅ Inc 2   |
-| 6     | 3    | —          | StripQueryString interaction   | Check: false, All: true, StripQueryString: true  | Query stripped before cache  | `TestCacheAllExternalQueryString`     | TODO       |
+| Test# | Incr | Matrix Row | Behavior to Test               | CheckExternal-related config[^Config]            | Expected Result              | Test Name                                  | Status       |
+| ----- | ---- | ---------- | ------------------------------ | ------------------------------------------------ | ---------------------------- | ------------------------------------------ | ------------ |
+| —     | —    | Row 1      | Default/Legacy                 | Check: true, All: false, Retry: true             | 200, 4XX cached & retried    | `TestExternalErrorCachedRetried`           | ✅ Existing  |
+| —     | —    | Row 2      | Errors not retried             | Check: true, All: false, Retry: false            | 200, 4XX cached & reused     | `TestExternalBrokenRetryCachedErrorsDisabled` | ✅ Existing  |
+| —     | —    | Row 3      | Timeout cached & retried       | Check: true, All: true, Retry: true              | Timeout cached but retried   | _(no explicit test yet)_                   | ⚠️ TODO Inc 4 |
+| —     | —    | Row 4      | Timeout cached & reused        | Check: true, All: true, Retry: false             | Timeout cached & reused      | `TestTimeoutCachedReused`                  | ✅ Phase 0   |
+| 1     | 0    | Row 5      | Default: no caching            | Check: false, All: false                         | Nothing cached               | `TestCacheAllExternalDisabled`             | ✅ Inc 0     |
+| 2     | 1    | Row 6      | **Discovery mode**             | Check: false, All: true                          | Cache with `StatusUnchecked` | `TestCacheAllExternalDiscovery`            | ✅ Inc 1     |
+| 3     | 2    | —          | IgnoreURLs interaction         | Check: false, All: true, IgnoreURLs: `[pattern]` | Ignored URLs NOT cached      | `TestCacheAllExternalAndIgnoredURLs`       | ✅ Inc 2     |
+| 4     | 3    | —          | StripQueryString interaction   | Check: false, All: true, StripQueryString: true  | Query stripped before cache  | `TestCacheAllExternalQueryString`          | ✅ Inc 3     |
 
 [^Config]:
     Abbreviations: `Check` = `CheckExternal`, `All` = `CacheAllExternal`,
@@ -369,14 +371,18 @@ errors (network failures, cert errors) will be addressed in future phases.
 **Result**: Feature interaction verified - ignored URLs correctly excluded from
 cache
 
-#### Increment 3: Test #6 - StripQueryString Feature Interaction
+#### Increment 3: Test #6 - StripQueryString Feature Interaction ✅
 
 **Purpose**: Verify CacheAllExternal works with query string stripping
 
-- Write test: Query strings stripped before caching
-- Run test: Likely PASS (existing logic should work)
-- If RED: Adjust operation order
-- Benefit: Validates design assumption
+- ✅ Wrote `TestCacheAllExternalQueryString` using `check_just_once.html` fixture
+- ✅ Tests `github.com` URLs (not in default `StripQueryExcludes`)
+- ✅ Test run: **GREEN** (query stripping happens before caching)
+- ✅ No code changes needed
+- ✅ Verifies: Multiple URLs with different query params → single cached entry
+
+**Result**: Query string stripping correctly applied before caching in discovery
+mode
 
 #### Increment 4: Verify Row 3 & Row 4 Coverage
 
@@ -401,7 +407,7 @@ fresh, verify complete matrix coverage.
 - [x] Increment 0: Baseline test (default behavior - row 5) ✅
 - [x] Increment 1: Discovery mode test + implementation (row 6) ✅
 - [x] Increment 2: IgnoreURLs feature interaction ✅
-- [ ] Increment 3: StripQueryString feature interaction
+- [x] Increment 3: StripQueryString feature interaction ✅
 - [ ] Increment 4: Verify row 3 & 4 coverage
 
 ### Documentation
