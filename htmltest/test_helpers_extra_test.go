@@ -25,8 +25,8 @@ func tTestFileOptsFromCleanOutputDir(filename string, tOpts map[string]interface
 
 func tRemoveOutputDir(tOpts map[string]interface{}) {
 	opts := DefaultOptions()
-	mergo.MergeWithOverwrite(&opts, tOpts)
-	os.RemoveAll(opts["OutputDir"].(string))
+	_ = mergo.MergeWithOverwrite(&opts, tOpts)
+	_ = os.RemoveAll(opts["OutputDir"].(string))
 }
 
 // Test skip helpers
