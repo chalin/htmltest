@@ -212,8 +212,5 @@ func TestCacheAllExternalDisabled(t *testing.T) {
 	tExpectIssueCount(t, hT, 0) // No errors since external checking is disabled
 
 	// Verify the external link was NOT cached (default behavior)
-	_, ok := hT.refCache.Get("http://www.asdo3IRJ395295jsingrkrg4.com")
-	if ok {
-		t.Error("external links should NOT be cached when CacheAllExternal is false (default)")
-	}
+	tExpectNotCached(t, hT, "http://www.asdo3IRJ395295jsingrkrg4.com")
 }
