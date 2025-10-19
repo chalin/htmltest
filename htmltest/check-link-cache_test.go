@@ -242,3 +242,109 @@ func TestCacheAllExternalQueryString(t *testing.T) {
 	// Verify the URL WITH query string is NOT in cache (proves stripping happened)
 	tExpectNotCached(t, hT, "https://github.com/contact?form%5Bsubject%5D=New+Assigned+Events")
 }
+
+// ========================================
+// Phase 2: Tool-Specific Error Caching
+// ========================================
+
+// TestNetworkErrorCached : Test that network/DNS errors are cached with
+// StatusNetworkError when CacheAllExternal is true.
+func TestNetworkErrorCached(t *testing.T) {
+	fixture := "fixtures/generic/citeBroken.html"
+	opts := map[string]interface{}{
+		"VCREnable":        true,
+		"EnableCache":      true,
+		"CacheAllExternal": true,
+	}
+
+	hT := tTestFileOptsFromCleanOutputDir(fixture, opts)
+	tExpectIssueCount(t, hT, 4) // 4 broken citations
+
+	// Verify the network error was cached with StatusNetworkError
+	tExpectCached(t, hT, "http://invalid.invalid", StatusNetworkError)
+}
+
+// TestNetworkErrorCachedReused : Test that cached network errors are reused on
+// subsequent runs when CacheAllExternal is true and RetryCachedErrors is false.
+func TestNetworkErrorCachedReused(t *testing.T) {
+	fixture := "fixtures/generic/citeBroken.html"
+	opts := map[string]interface{}{
+		"VCREnable":         true,
+		"EnableCache":       true,
+		"CacheAllExternal":  true,
+		"RetryCachedErrors": false,
+	}
+
+	// First run: populate cache with network error
+	hT := tTestFileOptsFromCleanOutputDir(fixture, opts)
+	tExpectIssueCount(t, hT, 4)
+	tExpectCached(t, hT, "http://invalid.invalid", StatusNetworkError)
+
+	// Second run WITHOUT VCR: should use cached errors (not retry)
+	opts["VCREnable"] = false
+	hT2 := tTestFileOpts(fixture, opts)
+	tExpectIssueCount(t, hT2, 4)
+
+	// Verify cached errors were reused (fixture has 2 external links: invalid.invalid + Wikipedia 404)
+	tExpectIssue(t, hT2, "from cache", 2)
+	tExpectIssue(t, hT2, "hitting", 0)
+}
+
+// TestCertErrorCached : Test that certificate errors are cached with
+// StatusCertError when CacheAllExternal is true.
+func TestCertErrorCached(t *testing.T) {
+	tSkipShortExternal(t)
+	url := "https://expired.badssl.com/"
+	fixture := "fixtures/links/link_expired_cert.html"
+	opts := map[string]interface{}{
+		"EnableCache":      true,
+		"CacheAllExternal": true,
+		"IgnoreSSLVerify":  false,
+	}
+
+	hT := tTestFileOptsFromCleanOutputDir(fixture, opts)
+	tExpectIssueCount(t, hT, 1)
+	tExpectCached(t, hT, url, StatusCertError)
+}
+
+// TestCertErrorCachedReused : Test that cached certificate errors are reused
+// when Cache AllExternal is true and RetryCachedErrors is false.
+func TestCertErrorCachedReused(t *testing.T) {
+	tSkipShortExternal(t)
+	url := "https://expired.badssl.com/"
+	fixture := "fixtures/links/link_expired_cert.html"
+	opts := map[string]interface{}{
+		"EnableCache":       true,
+		"CacheAllExternal":  true,
+		"IgnoreSSLVerify":   false,
+		"RetryCachedErrors": false,
+		"VCREnable":         false, // Disable VCR to verify cache behavior
+	}
+
+	// First run: cache the cert error
+	hT1 := tTestFileOptsFromCleanOutputDir(fixture, opts)
+	tExpectIssueCount(t, hT1, 1)
+	tExpectCached(t, hT1, url, StatusCertError)
+
+	// Second run: reuse cached cert error (no external request)
+	hT2 := tTestFileOpts(fixture, opts)
+	tExpectIssueCount(t, hT2, 1)
+	tExpectIssue(t, hT2, "certificate error (cached)", 1)
+	tExpectCached(t, hT2, url, StatusCertError)
+}
+
+// TestClientErrorCached : Test that generic HTTP client errors are cached with
+// StatusClientError when CacheAllExternal is true.
+// Note: Generic client errors are rare - this is a catch-all for unhandled error types.
+func TestClientErrorCached(t *testing.T) {
+	// TODO: Need to find or create a fixture that triggers a generic client error
+	// that isn't already handled by timeout, network, or cert error handlers.
+	// This might require mocking or a very specific edge case.
+	t.Skip("Need fixture that triggers generic client error (not timeout/network/cert)")
+}
+
+// TestClientErrorCachedReused : Test that cached generic client errors are reused
+// when CacheAllExternal is true and RetryCachedErrors is false.
+func TestClientErrorCachedReused(t *testing.T) {
+	t.Skip("Depends on TestClientErrorCached fixture")
+}

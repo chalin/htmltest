@@ -224,6 +224,9 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 			}
 
 			if certErr, ok := err.(*url.Error).Err.(x509.UnknownAuthorityError); ok {
+				if hT.opts.CacheAllExternal {
+					hT.refCache.Save(urlStr, StatusCertError)
+				}
 				err = validateCertChain(certErr.Cert)
 				if err == nil {
 					hT.issueStore.AddIssue(issues.Issue{
@@ -237,6 +240,9 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 
 			// More generic, should be kept below more specific cases
 			if strings.Contains(err.Error(), "dial tcp") {
+				if hT.opts.CacheAllExternal {
+					hT.refCache.Save(urlStr, StatusNetworkError)
+				}
 				// Remove long prefix
 				prefix := "Get " + urlStr + ": dial tcp: lookup "
 				cleanedMessage := strings.TrimPrefix(err.Error(), prefix)
@@ -250,6 +256,14 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 			}
 
 			// Unhandled client error, return generic error
+			if hT.opts.CacheAllExternal {
+				statusCode := StatusClientError
+				if strings.Contains(err.Error(), "x509:") {
+					statusCode = StatusCertError
+				}
+				hT.refCache.Save(urlStr, statusCode)
+			}
+
 			hT.issueStore.AddIssue(issues.Issue{
 				Level:     issueLevel,
 				Message:   err.Error(),
@@ -274,6 +288,24 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 		hT.issueStore.AddIssue(issues.Issue{
 			Level:     issues.LevelDebug,
 			Message:   http.StatusText(statusCode),
+			Reference: ref,
+		})
+	case StatusCertError:
+		hT.issueStore.AddIssue(issues.Issue{
+			Level:     issueLevel,
+			Message:   "certificate error (cached)",
+			Reference: ref,
+		})
+	case StatusClientError:
+		hT.issueStore.AddIssue(issues.Issue{
+			Level:     issueLevel,
+			Message:   "client error (cached)",
+			Reference: ref,
+		})
+	case StatusNetworkError:
+		hT.issueStore.AddIssue(issues.Issue{
+			Level:     issueLevel,
+			Message:   "network error (cached)",
 			Reference: ref,
 		})
 	case StatusTimeout:
