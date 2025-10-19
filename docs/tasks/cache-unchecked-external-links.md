@@ -86,13 +86,41 @@ This cleanup must happen BEFORE implementing the discovery mode feature.
 ### Key Insights
 
 - `CacheAllExternal` extends caching behavior in **both** modes:
-  - When `CheckExternal: true` → Also caches timeouts (as `StatusTimeout`)
+  - When `CheckExternal: true` → Caches **all tool-specific errors** (timeouts,
+    network failures, etc.)
   - When `CheckExternal: false` → Caches discovered links (as `StatusUnchecked`)
 - `RetryCachedErrors` now has clean, single-purpose semantics (retry vs. reuse
   cached errors)
 - When `CheckExternal: false`, `RetryCachedErrors` has no effect (nothing to
   retry)
 - See `@docs/tasks/design.md` for status code details
+
+### Tool-Specific Errors to Cache
+
+When `CacheAllExternal: true` and `CheckExternal: true`, **all** non-HTTP errors
+should be cached with appropriate status codes:
+
+1. **Timeout errors** (`StatusTimeout = -10`):
+   - Request exceeds `ExternalTimeout` setting
+   - Currently: ✅ Already implemented in Phase 0
+
+2. **DNS/Network errors** (`StatusNetworkError = -20`):
+   - "dial tcp" failures
+   - DNS lookup failures
+   - Connection refused
+   - Currently: ❌ Not cached (returns early without caching)
+
+3. **Certificate errors** (`StatusCertError = -30`):
+   - x509.UnknownAuthorityError
+   - Invalid/expired certificates
+   - Incomplete certificate chains
+   - Currently: ❌ Not cached (returns early without caching)
+
+4. **Generic client errors** (`StatusClientError = -40`):
+   - Other unhandled HTTP client errors
+   - Currently: ❌ Not cached (returns early without caching)
+
+**Note**: HTTP status codes (200, 404, etc.) are already cached in all modes.
 
 ## Implementation Steps (TDD Approach)
 
@@ -252,18 +280,42 @@ Two modifications needed:
 causing a compilation error (deep RED), then added just enough to compile and
 pass (GREEN)
 
-**Infrastructure Improvement**: Testify migration
+**Infrastructure Improvements**:
 
-- ✅ Migrated `check-link-cache_test.go` from `go-assert` to
-  `github.com/stretchr/testify/assert`
-- ✅ Benefits: Industry-standard library, better error messages, active
-  maintenance
-- ✅ All existing tests continue to pass
-- ✅ New tests use cleaner assertion syntax: `assert.Equal(t, expected, actual)`
+1. **Testify migration**:
+   - ✅ Migrated `check-link-cache_test.go` to
+     `github.com/stretchr/testify/assert`
+   - ✅ Benefits: Industry-standard library, better error messages, active
+     maintenance
+   - ✅ Cleaner assertion syntax: `assert.Equal(t, expected, actual)`
+
+2. **Cache assertion helpers** (`test_helpers_extra_test.go`):
+   - ✅ `tExpectCached(t, hT, url, statusCode...)` - Assert URL is cached
+     (optionally with status)
+   - ✅ `tExpectNotCached(t, hT, url)` - Assert URL is not cached
+   - ✅ Reduces boilerplate from ~7 lines to 1 line per assertion
+
+3. **Slow test control**:
+   - ✅ Added `tSkipSlow(t)` helper with `-skip-slow` flag
+   - ✅ Applied to 4 timeout tests (wait 1s each)
+   - ✅ Updated Makefile to support `TESTFLAGS`
+   - ✅ Usage: `make test-tdd TEST_RUN='.*Cache.*' TESTFLAGS=-skip-slow`
+   - ✅ Result: Cache tests run in ~1.7s (vs ~7.8s with timeout waits)
+
+4. **Test refactoring** (DRY patterns):
+   - ✅ Extract `fixture` variables for paths
+   - ✅ Extract `opts` maps and reuse across test runs
+   - ✅ Consistent test structure across all cache tests
 
 ---
 
 ### Phase 1: Discovery Mode Feature
+
+**Scope**: Implement `StatusUnchecked` caching when `CheckExternal: false` and
+`CacheAllExternal: true`.
+
+**Note**: Phase 1 focuses on discovery mode only. Caching additional tool-specific
+errors (network failures, cert errors) will be addressed in future phases.
 
 #### Increment 1: Test #1 - Default Behavior (Baseline)
 
@@ -334,3 +386,38 @@ fresh, verify complete matrix coverage.
 ### Documentation
 
 - [ ] Update README configuration table
+
+## Future Phases
+
+### Phase 2: Network Error Caching (Future)
+
+**Scope**: Cache DNS and network failures with `StatusNetworkError = -20`
+
+- Add `StatusNetworkError` constant to `statuscodes.go`
+- Modify "dial tcp" error handling in `check-link.go` to cache when
+  `CacheAllExternal: true`
+- Add tests for network error caching
+- Covers: DNS lookup failures, connection refused, network unreachable
+
+### Phase 3: Certificate Error Caching (Future)
+
+**Scope**: Cache certificate validation errors with `StatusCertError = -30`
+
+- Add `StatusCertError` constant to `statuscodes.go`
+- Modify x509 error handling in `check-link.go` to cache when `CacheAllExternal:
+  true`
+- Add tests for certificate error caching
+- Covers: Unknown authority, expired certs, incomplete chains
+
+### Phase 4: Generic Client Error Caching (Future)
+
+**Scope**: Cache other HTTP client errors with `StatusClientError = -40`
+
+- Add `StatusClientError` constant to `statuscodes.go`
+- Modify generic error handling in `check-link.go` to cache when
+  `CacheAllExternal: true`
+- Add tests for generic error caching
+- Covers: All other unhandled HTTP client errors
+
+**Note**: These phases follow the same TDD approach as Phases 0 and 1. Each error
+type gets its own status code and test coverage.

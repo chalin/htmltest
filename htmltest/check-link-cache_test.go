@@ -82,8 +82,9 @@ func TestExternalBrokenRetryCachedErrorsDisabled(t *testing.T) {
 // and are retried on every run. This ensures backward compatibility with the
 // original behavior.
 func TestTimeoutNotCachedByDefault(t *testing.T) {
-	fixture := "fixtures/links/ip_timeout.html"
+	tSkipSlow(t)
 	tSkipShortExternal(t)
+	fixture := "fixtures/links/ip_timeout.html"
 
 	// First run: timeout occurs
 	opts := map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true}
@@ -105,8 +106,10 @@ func TestTimeoutNotCachedByDefault(t *testing.T) {
 // cached when ONLY RetryCachedErrors is false (without CacheAllExternal). This
 // ensures that the legacy behavior of RetryCachedErrors is no longer active.
 func TestTimeoutNotCachedWithRetryCacheErrorsOnly(t *testing.T) {
-	opts := map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "RetryCachedErrors": false}
+	tSkipSlow(t)
 	tSkipShortExternal(t)
+	opts := map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "RetryCachedErrors": false}
+
 	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html", opts)
 	tExpectIssueCount(t, hT, 1)
 	tExpectIssue(t, hT, "request exceeded our ExternalTimeout", 1)
@@ -117,6 +120,7 @@ func TestTimeoutNotCachedWithRetryCacheErrorsOnly(t *testing.T) {
 // TestTimeoutIsCached : Test that URLs that timeout are saved to the refcache
 // when CacheAllExternal is true.
 func TestTimeoutIsCached(t *testing.T) {
+	tSkipSlow(t)
 	tSkipShortExternal(t)
 	opts := map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "CacheAllExternal": true}
 	hT := tTestFileOptsFromCleanOutputDir("fixtures/links/ip_timeout.html", opts)
@@ -129,9 +133,10 @@ func TestTimeoutIsCached(t *testing.T) {
 // subsequent runs without retrying the URL when CacheAllExternal is true and
 // RetryCachedErrors is false.
 func TestTimeoutCachedReused(t *testing.T) {
+	tSkipSlow(t)
+	tSkipShortExternal(t)
 	fixture := "fixtures/links/ip_timeout.html"
 	opts := map[string]interface{}{"EnableCache": true, "CacheAllExternal": true, "RetryCachedErrors": false}
-	tSkipShortExternal(t)
 
 	// First run: cause and cache a timeout
 	opts["ExternalTimeout"] = 1
@@ -146,23 +151,6 @@ func TestTimeoutCachedReused(t *testing.T) {
 	// Verify it used the cache (should see "from cache" not "hitting")
 	tExpectIssue(t, hT2, "from cache", 1)
 	tExpectIssue(t, hT2, "hitting", 0)
-}
-
-// TestTimeoutCachedMessage : Test that a URL that previously timed out will be
-// reported as "(cached)" on subsequent runs when CacheAllExternal is true and
-// RetryCachedErrors is false.
-func TestTimeoutCachedMessage(t *testing.T) {
-	tSkipShortExternal(t)
-	fixture := "fixtures/links/ip_timeout.html"
-	opts := map[string]interface{}{"ExternalTimeout": 1, "EnableCache": true, "CacheAllExternal": true, "RetryCachedErrors": false}
-
-	// First run: cause and cache a timeout
-	hT := tTestFileOptsFromCleanOutputDir(fixture, opts)
-	tExpectIssueCount(t, hT, 1)
-
-	// Second run: with RetryCachedErrors disabled, should use cached timeout and report with "(cached)" message
-	hT2 := tTestFileOpts(fixture, opts)
-	tExpectIssueCount(t, hT2, 1)
 	tExpectIssue(t, hT2, "request exceeded our ExternalTimeout (cached)", 1)
 }
 

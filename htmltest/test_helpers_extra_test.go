@@ -1,12 +1,15 @@
 package htmltest
 
 import (
+	"flag"
 	"os"
 	"testing"
 
 	"github.com/imdario/mergo"
 	"github.com/stretchr/testify/assert"
 )
+
+var skipSlow = flag.Bool("skip-slow", false, "skip slow tests (timeouts, etc.)")
 
 // Test fixture helpers
 
@@ -22,6 +25,17 @@ func tRemoveOutputDir(tOpts map[string]interface{}) {
 	opts := DefaultOptions()
 	mergo.MergeWithOverwrite(&opts, tOpts)
 	os.RemoveAll(opts["OutputDir"].(string))
+}
+
+// Test skip helpers
+
+// tSkipSlow skips slow tests that involve actual timeouts (seconds of waiting).
+// Controlled by the -skip-slow flag. Use -skip-slow=true to skip these tests
+// during rapid development.
+func tSkipSlow(t *testing.T) {
+	if *skipSlow {
+		t.Skip("Skipping slow test (involves actual timeout waits)")
+	}
 }
 
 // Cache assertion helpers
