@@ -137,7 +137,9 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 			Message:   "skipping external check",
 			Reference: ref,
 		})
-		return
+		if !hT.opts.CacheAllExternal {
+			return
+		}
 	}
 
 	urlStr := ref.URLString()
@@ -150,6 +152,17 @@ func (hT *HTMLTest) checkExternal(ref *htmldoc.Reference) {
 	if hT.opts.StripQueryString && !InList(hT.opts.StripQueryExcludes, urlStr) {
 		urlStr = htmldoc.URLStripQueryString(urlStr)
 	}
+
+	// Discovery mode: cache as unchecked and return early
+	if !hT.opts.CheckExternal {
+		// Invariant: CacheAllExternal must be true, otherwise would have returned earlier
+		if !hT.opts.CacheAllExternal {
+			panic("Invariant violation: CacheAllExternal should be true")
+		}
+		hT.refCache.Save(urlStr, StatusUnchecked)
+		return
+	}
+
 	var statusCode int
 
 	cR, isCached := hT.refCache.Get(urlStr)

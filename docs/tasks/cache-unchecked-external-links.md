@@ -9,9 +9,11 @@ status: in-progress
 
 - ✅ **Phase 0 Complete**: `RetryCachedErrors` semantics cleaned up, timeout
   caching now controlled by `CacheAllExternal`
-- ✅ **Test Infrastructure**: Migrated `check-link-cache_test.go` to use
-  `testify/assert` for better assertion syntax
-- 🚧 **Phase 1 In Progress**: Ready to implement Discovery Mode feature
+- ✅ **Test Infrastructure**: Migrated to `testify/assert`, cache helpers, fast
+  test targets
+- ✅ **Phase 1 Increments 1-2 Complete**: Core discovery mode feature working!
+  External links cached with `StatusUnchecked`
+- 🚧 **Phase 1 In Progress**: Testing edge cases (ignored URLs, query stripping)
 
 # CacheAllExternal Feature
 
@@ -141,21 +143,23 @@ For each behavior in the matrix below:
 Phase 1 focuses on implementing **Discovery Mode** (rows 5-6 from Complete
 Behavior Matrix). Timeout caching (rows 3-4) was already implemented in Phase 0.
 
-| #   | Matrix Row | Behavior to Test            | CheckExternal-related config[^Config]            | Expected Result              | Test Name                             | Status     |
-| --- | ---------- | --------------------------- | ------------------------------------------------ | ---------------------------- | ------------------------------------- | ---------- |
-| 1   | Row 5      | Default: no caching         | Check: false, All: false                         | Nothing cached               | `TestCacheAllExternalDisabled`        | ✅ Exists  |
-| 2   | Row 6      | **Discovery mode**          | Check: false, All: true                          | Cache with `StatusUnchecked` | `TestCacheAllExternalDiscovery`       | TODO       |
-| 3   | Row 3      | Timeout cached & retried    | Check: true, All: true, Retry: true              | Timeout retried on next run  | _(covered by existing timeout tests)_ | ✅ Phase 0 |
-| 4   | Row 4      | Timeout cached & reused     | Check: true, All: true, Retry: false             | Timeout reused from cache    | `TestTimeoutCachedReused`             | ✅ Phase 0 |
-| 5   | —          | Ignored URLs (edge case)    | Check: false, All: true, IgnoreURLs: `[pattern]` | Ignored URLs NOT cached      | `TestCacheAllExternalIgnored`         | TODO       |
-| 6   | —          | Query stripping (edge case) | Check: false, All: true, StripQueryString: true  | Query stripped before cache  | `TestCacheAllExternalQueryString`     | TODO       |
+| Test# | Incr | Matrix Row | Behavior to Test               | CheckExternal-related config[^Config]            | Expected Result              | Test Name                             | Status     |
+| ----- | ---- | ---------- | ------------------------------ | ------------------------------------------------ | ---------------------------- | ------------------------------------- | ---------- |
+| 1     | 0    | Row 5      | Default: no caching            | Check: false, All: false                         | Nothing cached               | `TestCacheAllExternalDisabled`        | ✅ Inc 0   |
+| 2     | 1    | Row 6      | **Discovery mode**             | Check: false, All: true                          | Cache with `StatusUnchecked` | `TestCacheAllExternalDiscovery`       | ✅ Inc 1   |
+| 3     | —    | Row 3      | Timeout cached & retried       | Check: true, All: true, Retry: true              | Timeout retried on next run  | _(covered by existing timeout tests)_ | ✅ Phase 0 |
+| 4     | —    | Row 4      | Timeout cached & reused        | Check: true, All: true, Retry: false             | Timeout reused from cache    | `TestTimeoutCachedReused`             | ✅ Phase 0 |
+| 5     | 2    | —          | IgnoreURLs interaction         | Check: false, All: true, IgnoreURLs: `[pattern]` | Ignored URLs NOT cached      | `TestCacheAllExternalIgnored`         | TODO       |
+| 6     | 3    | —          | StripQueryString interaction   | Check: false, All: true, StripQueryString: true  | Query stripped before cache  | `TestCacheAllExternalQueryString`     | TODO       |
 
 [^Config]:
     Abbreviations: `Check` = `CheckExternal`, `All` = `CacheAllExternal`,
     `Retry` = `RetryCachedErrors`.
 
-**Commands**: Use `make test-tdd TEST_RUN=<TestName>` or
-`make test-tdd-cache TEST_RUN=<TestName>`
+**Commands**:
+- `make test-tdd-fast TEST_RUN=<TestName>` - Fast TDD (skip slow tests, ~1.5s)
+- `make test-tdd TEST_RUN=<TestName>` - Full TDD (includes slow tests, ~7.8s)
+- `make test-tdd-cache TEST_RUN=<TestName>` - With cache inspection
 
 **Note**: Phase 1 focuses on discovery mode (row 6) and its edge cases. Rows 1-4
 from the Complete Behavior Matrix are already covered by existing tests.
@@ -297,10 +301,12 @@ pass (GREEN)
 
 3. **Slow test control**:
    - ✅ Added `tSkipSlow(t)` helper with `-skip-slow` flag
-   - ✅ Applied to 4 timeout tests (wait 1s each)
-   - ✅ Updated Makefile to support `TESTFLAGS`
-   - ✅ Usage: `make test-tdd TEST_RUN='.*Cache.*' TESTFLAGS=-skip-slow`
-   - ✅ Result: Cache tests run in ~1.7s (vs ~7.8s with timeout waits)
+   - ✅ Applied to 4 cache timeout tests (wait 1s each)
+   - ✅ Updated Makefile with `TESTFLAGS` support
+   - ✅ Added fast test targets:
+     - `make test-fast` - All packages, skip slow tests (~7s)
+     - `make test-tdd-fast TEST_RUN='...'` - TDD mode, skip slow tests (~1.5s)
+   - ✅ Result: 76% faster cache test runs (1.5s vs 7.8s)
 
 4. **Test refactoring** (DRY patterns):
    - ✅ Extract `fixture` variables for paths
@@ -317,44 +323,55 @@ pass (GREEN)
 **Note**: Phase 1 focuses on discovery mode only. Caching additional tool-specific
 errors (network failures, cert errors) will be addressed in future phases.
 
-#### Increment 1: Test #1 - Default Behavior (Baseline)
+#### Increment 0: Test #1 - Default Behavior (Baseline) ✅
 
 **Purpose**: Establish regression test for row 5
 
-- Write test: Verify `CacheAllExternal: false` doesn't cache discovered links
-- Run test: Should PASS immediately (tests current behavior)
-- No code needed: This is baseline
-- Benefit: Protects against future regressions
+- ✅ Test already exists: `TestCacheAllExternalDisabled`
+- ✅ Verifies `CacheAllExternal: false` doesn't cache discovered links
+- ✅ Test: PASS (baseline behavior confirmed)
+- ✅ No work needed: Baseline already covered
 
-#### Increment 2: Test #2 - Discovery Mode (Core Feature)
+#### Increment 1: Test #2 - Discovery Mode (Core Feature) ✅
 
 **Purpose**: Implement row 6 - the main use case
 
-- Write test: Discovery mode caches with `StatusUnchecked`
-- Run test: RED (config exists but no discovery caching code)
-- Implement: Add discovery caching in `checkExternal()`
-- Run test: GREEN
-- **This is the core feature**
+**Actual TDD Steps**:
 
-#### Increment 3: Test #4 - Ignored URLs
+- ✅ Wrote `TestCacheAllExternalDiscovery` test
+- ✅ Test run: **RED** (URL not cached, feature doesn't exist)
+- ✅ Fixed `tExpectCached` helper to avoid panic on failed assertion
+- ✅ Implemented discovery mode in `checkExternal()`:
+  - Early return when `CheckExternal: false && CacheAllExternal: false`
+  - Fall through to URL processing when `CacheAllExternal: true`
+  - Cache with `StatusUnchecked` and return
+- ✅ Test run: **GREEN**
+- ✅ Refactored: Moved URL processing before discovery mode check (DRY)
+- ✅ Added invariant check to document control flow assumption
+- ✅ All cache tests: **GREEN**
 
-**Purpose**: Verify edge case works
+**Result**: Core discovery mode feature working! External links cached with
+`StatusUnchecked` when `CheckExternal: false` and `CacheAllExternal: true`.
+
+#### Increment 2: Test #5 - IgnoreURLs Feature Interaction
+
+**Purpose**: Verify CacheAllExternal respects IgnoreURLs patterns
 
 - Write test: Ignored URLs not cached
 - Run test: Likely PASS (existing `isURLIgnored()` should work)
 - If RED: Fix discovery code to respect ignore patterns
 - Benefit: Validates design assumption
 
-#### Increment 4: Test #5 - Query String Stripping
+#### Increment 3: Test #6 - StripQueryString Feature Interaction
 
-**Purpose**: Verify edge case works
+**Purpose**: Verify CacheAllExternal works with query string stripping
 
 - Write test: Query strings stripped before caching
 - Run test: Likely PASS (existing logic should work)
 - If RED: Adjust operation order
 - Benefit: Validates design assumption
 
-#### Increment 5: Verify Row 3 & Row 4 Coverage
+#### Increment 4: Verify Row 3 & Row 4 Coverage
 
 **Purpose**: Ensure timeout+retry combinations work
 
@@ -370,18 +387,15 @@ fresh, verify complete matrix coverage.
 
 ### Phase 0: Cleanup
 
-- [ ] Step 0a: Add `CacheAllExternal` config option
-- [ ] Step 0b: Update 3 existing timeout tests
-- [ ] Step 0c: Refactor timeout caching code
-- [ ] Step 0d: Verify row 2 behavior
+- [x] Step 0.1-0.6: All steps complete ✅
 
 ### Phase 1: Discovery Mode
 
-- [ ] Increment 1: Baseline test (default behavior - row 5)
-- [ ] Increment 2: Discovery mode test + implementation (row 6)
-- [ ] Increment 3: Ignored URLs edge case
-- [ ] Increment 4: Query stripping edge case
-- [ ] Increment 5: Verify row 3 & 4 coverage
+- [x] Increment 0: Baseline test (default behavior - row 5) ✅
+- [x] Increment 1: Discovery mode test + implementation (row 6) ✅
+- [ ] Increment 2: Ignored URLs edge case
+- [ ] Increment 3: Query stripping edge case
+- [ ] Increment 4: Verify row 3 & 4 coverage
 
 ### Documentation
 

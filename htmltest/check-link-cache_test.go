@@ -170,3 +170,17 @@ func TestCacheAllExternalDisabled(t *testing.T) {
 	// Verify the external link was NOT cached (default behavior)
 	tExpectNotCached(t, hT, "http://www.asdo3IRJ395295jsingrkrg4.com")
 }
+
+// TestCacheAllExternalDiscovery : Test that external links ARE cached with
+// StatusUnchecked when CacheAllExternal is true and CheckExternal is false.
+// This is the core discovery mode feature.
+func TestCacheAllExternalDiscovery(t *testing.T) {
+	fixture := "fixtures/links/brokenLinkExternalSingle.html"
+	opts := map[string]interface{}{"CheckExternal": false, "EnableCache": true, "CacheAllExternal": true}
+
+	hT := tTestFileOptsFromCleanOutputDir(fixture, opts)
+	tExpectIssueCount(t, hT, 0) // No errors since external checking is disabled
+
+	// Verify the external link WAS cached with StatusUnchecked
+	tExpectCached(t, hT, "http://www.asdo3IRJ395295jsingrkrg4.com", StatusUnchecked)
+}

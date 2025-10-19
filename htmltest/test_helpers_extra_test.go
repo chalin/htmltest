@@ -44,7 +44,9 @@ func tSkipSlow(t *testing.T) {
 // If statusCode is provided, also asserts the cached status code matches.
 func tExpectCached(t *testing.T, hT *HTMLTest, url string, statusCode ...int) {
 	cR, ok := hT.refCache.Get(url)
-	assert.True(t, ok, "URL should be cached: "+url)
+	if !assert.True(t, ok, "URL should be cached: "+url) {
+		return // Stop if URL not in cache to avoid nil pointer panic
+	}
 	if len(statusCode) > 0 {
 		assert.Equal(t, statusCode[0], cR.StatusCode, "cached status code")
 	}
