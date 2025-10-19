@@ -2,7 +2,7 @@
 title: CacheAllExternal Feature
 date: 2025-10-18
 lastmod: 2025-10-19
-status: phase-1-complete
+status: complete
 cSpell:ignore: statuscodes
 ---
 
@@ -14,10 +14,10 @@ cSpell:ignore: statuscodes
   test targets
 - ✅ **Phase 1 Complete**: Discovery mode + feature interactions verified. All 6
   behavior matrix rows covered by tests.
+- ✅ **Phase 2 Complete**: Network, certificate, and generic client errors now
+  cached
 - ✅ **Documentation Complete**: README updated with CacheAllExternal option
-- 🎉 **Feature Ready**: CacheAllExternal fully implemented and tested!
-- 📋 **Phase 2 (Future)**: Cache network/cert/client errors for complete offline
-  re-runs
+- 🎉 **Feature Complete**: CacheAllExternal fully implemented and tested!
 
 # CacheAllExternal Feature
 
@@ -439,31 +439,38 @@ false`.
 #### Error Types to Add:
 
 **1. Network errors** (`StatusNetworkError = -20`):
-- DNS lookup failures ("no such host")
-- Connection refused
-- Network unreachable
-- Currently: Returns early without caching (lines 235-246 in `check-link.go`)
+- ✅ DNS lookup failures ("no such host")
+- ✅ Connection refused
+- ✅ Network unreachable
+- **Tests**: `TestNetworkErrorCached`, `TestNetworkErrorCachedReused`,
+  `TestNetworkErrorDNS`
+- **Implementation**: Cached when `CacheAllExternal: true` (lines 242-255 in
+  `check-link.go`)
 
 **2. Certificate errors** (`StatusCertError = -30`):
-- x509.UnknownAuthorityError
-- Expired certificates
-- Incomplete certificate chains
-- Currently: Returns early without caching (lines 223-232 in `check-link.go`)
+- ✅ x509 certificate errors (expired, untrusted, hostname mismatch, etc.)
+- ✅ Detection via string check for "x509:" in error message
+- **Tests**: `TestCertErrorCached`, `TestCertErrorCachedReused` (using
+  `expired.badssl.com`)
+- **Fixture**: `link_expired_cert.html`
+- **Implementation**: Status code determined before caching to avoid control flow
+  changes (lines 258-266 in `check-link.go`)
 
 **3. Generic client errors** (`StatusClientError = -40`):
-- Other unhandled HTTP client errors
-- Currently: Returns early without caching (lines 248-256 in `check-link.go`)
+- ✅ Catch-all for other unhandled HTTP client errors
+- **Tests**: Skipped (rare edge case, no reliable test fixture)
+- **Implementation**: Default status code if not network/cert error (lines
+  258-266 in `check-link.go`)
 
-#### Implementation Approach (TDD):
+#### Implementation Approach:
 
-For each error type:
-1. Add status code constant to `statuscodes.go`
-2. Write test (RED)
-3. Modify error handling to cache when `CacheAllExternal: true` (GREEN)
-4. Verify all tests pass (REFACTOR if needed)
+- Determine status code **before** caching to minimize control flow changes
+- Use string matching for error type detection ("dial tcp" for network, "x509:"
+  for certs)
+- Maintain existing error reporting behavior
 
 **Benefits**: Complete "fast re-runs" feature - no network calls at all when all
 errors are cached.
 
-**Status**: Deferred - Phase 1 provides the core value (discovery mode + timeout
-caching).
+**Status**: ✅ Complete - All tool-specific errors now cached when
+`CacheAllExternal: true`
