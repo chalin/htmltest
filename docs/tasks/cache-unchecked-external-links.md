@@ -2,7 +2,7 @@
 title: CacheAllExternal Feature
 date: 2025-10-18
 lastmod: 2025-10-19
-status: in-progress
+status: phase-1-complete
 cSpell:ignore: statuscodes
 ---
 
@@ -12,9 +12,12 @@ cSpell:ignore: statuscodes
   caching now controlled by `CacheAllExternal`
 - ✅ **Test Infrastructure**: Migrated to `testify/assert`, cache helpers, fast
   test targets
-- ✅ **Phase 1 Increments 0-3 Complete**: Core discovery mode + feature
-  interactions verified (IgnoreURLs, StripQueryString)
-- 🚧 **Phase 1 In Progress**: Verifying timeout test coverage (Increment 4)
+- ✅ **Phase 1 Complete**: Discovery mode + feature interactions verified. All 6
+  behavior matrix rows covered by tests.
+- ✅ **Documentation Complete**: README updated with CacheAllExternal option
+- 🎉 **Feature Ready**: CacheAllExternal fully implemented and tested!
+- 📋 **Phase 2 (Future)**: Cache network/cert/client errors for complete offline
+  re-runs
 
 # CacheAllExternal Feature
 
@@ -148,7 +151,7 @@ Behavior Matrix). Timeout caching (rows 3-4) was already implemented in Phase 0.
 | ----- | ---- | ---------- | ------------------------------ | ------------------------------------------------ | ---------------------------- | ------------------------------------------ | ------------ |
 | —     | —    | Row 1      | Default/Legacy                 | Check: true, All: false, Retry: true             | 200, 4XX cached & retried    | `TestExternalErrorCachedRetried`           | ✅ Existing  |
 | —     | —    | Row 2      | Errors not retried             | Check: true, All: false, Retry: false            | 200, 4XX cached & reused     | `TestExternalBrokenRetryCachedErrorsDisabled` | ✅ Existing  |
-| —     | —    | Row 3      | Timeout cached & retried       | Check: true, All: true, Retry: true              | Timeout cached but retried   | _(no explicit test yet)_                   | ⚠️ TODO Inc 4 |
+| —     | —    | Row 3      | Timeout cached & retried       | Check: true, All: true, Retry: true              | Timeout cached but retried   | `TestTimeoutCachedButRetried`              | ✅ Inc 4     |
 | —     | —    | Row 4      | Timeout cached & reused        | Check: true, All: true, Retry: false             | Timeout cached & reused      | `TestTimeoutCachedReused`                  | ✅ Phase 0   |
 | 1     | 0    | Row 5      | Default: no caching            | Check: false, All: false                         | Nothing cached               | `TestCacheAllExternalDisabled`             | ✅ Inc 0     |
 | 2     | 1    | Row 6      | **Discovery mode**             | Check: false, All: true                          | Cache with `StatusUnchecked` | `TestCacheAllExternalDiscovery`            | ✅ Inc 1     |
@@ -326,9 +329,9 @@ pass (GREEN)
 **Note**: Phase 1 focuses on discovery mode only. Caching additional tool-specific
 errors (network failures, cert errors) will be addressed in future phases.
 
-#### Increment 0: Test #1 - Default Behavior (Baseline) ✅
+#### Confirm default behavior
 
-**Purpose**: Establish regression test for row 5
+Confirm that we test for the expected default behavior:
 
 - ✅ Test already exists: `TestCacheAllExternalDisabled`
 - ✅ Verifies `CacheAllExternal: false` doesn't cache discovered links
@@ -384,13 +387,19 @@ cache
 **Result**: Query string stripping correctly applied before caching in discovery
 mode
 
-#### Increment 4: Verify Row 3 & Row 4 Coverage
+#### Increment 4: Verify Row 3 & Row 4 Coverage ✅
 
 **Purpose**: Ensure timeout+retry combinations work
 
-- Verify `TestTimeoutCachedReused` covers row 4 (cache + reuse)
-- Consider if we need explicit test for row 3 (cache + retry)
-- Existing test infrastructure may already cover this
+- ✅ Row 4 already covered: `TestTimeoutCachedReused` (All: true, Retry: false)
+- ✅ Row 3 needed explicit test: Wrote `TestTimeoutCachedButRetried`
+- ✅ Test verifies: Timeout cached (All: true) but retried on second run (Retry:
+  true, default)
+- ✅ Test run: **GREEN** (behavior already works correctly)
+- ✅ Updated table to show all 6 matrix rows covered
+
+**Result**: Complete behavior matrix coverage verified. All 6 combinations of
+CheckExternal, CacheAllExternal, and RetryCachedErrors have test coverage.
 
 **Rationale for order**: Clean up semantics first (Phase 0), then add
 infrastructure and core discovery feature (Phase 1), validate assumptions while
@@ -408,43 +417,53 @@ fresh, verify complete matrix coverage.
 - [x] Increment 1: Discovery mode test + implementation (row 6) ✅
 - [x] Increment 2: IgnoreURLs feature interaction ✅
 - [x] Increment 3: StripQueryString feature interaction ✅
-- [ ] Increment 4: Verify row 3 & 4 coverage
+- [x] Increment 4: Verify row 3 & 4 coverage ✅
 
 ### Documentation
 
-- [ ] Update README configuration table
+- [x] Update README configuration table ✅
 
-## Future Phases
+## Future Work
 
-### Phase 2: Network Error Caching (Future)
+### Phase 2: Tool-Specific Error Caching (Future)
 
-**Scope**: Cache DNS and network failures with `StatusNetworkError = -20`
+**Scope**: Extend `CacheAllExternal` to cache all tool-specific errors (beyond
+timeouts) when `CheckExternal: true`
 
-- Add `StatusNetworkError` constant to `statuscodes.go`
-- Modify "dial tcp" error handling in `check-link.go` to cache when
-  `CacheAllExternal: true`
-- Add tests for network error caching
-- Covers: DNS lookup failures, connection refused, network unreachable
+**Currently**: Only `StatusTimeout` is cached (Phase 0)
 
-### Phase 3: Certificate Error Caching (Future)
+**Goal**: Cache all error types that prevent successful HTTP responses, enabling
+truly offline re-runs with `CacheAllExternal: true` and `RetryCachedErrors:
+false`.
 
-**Scope**: Cache certificate validation errors with `StatusCertError = -30`
+#### Error Types to Add:
 
-- Add `StatusCertError` constant to `statuscodes.go`
-- Modify x509 error handling in `check-link.go` to cache when `CacheAllExternal:
-  true`
-- Add tests for certificate error caching
-- Covers: Unknown authority, expired certs, incomplete chains
+**1. Network errors** (`StatusNetworkError = -20`):
+- DNS lookup failures ("no such host")
+- Connection refused
+- Network unreachable
+- Currently: Returns early without caching (lines 235-246 in `check-link.go`)
 
-### Phase 4: Generic Client Error Caching (Future)
+**2. Certificate errors** (`StatusCertError = -30`):
+- x509.UnknownAuthorityError
+- Expired certificates
+- Incomplete certificate chains
+- Currently: Returns early without caching (lines 223-232 in `check-link.go`)
 
-**Scope**: Cache other HTTP client errors with `StatusClientError = -40`
+**3. Generic client errors** (`StatusClientError = -40`):
+- Other unhandled HTTP client errors
+- Currently: Returns early without caching (lines 248-256 in `check-link.go`)
 
-- Add `StatusClientError` constant to `statuscodes.go`
-- Modify generic error handling in `check-link.go` to cache when
-  `CacheAllExternal: true`
-- Add tests for generic error caching
-- Covers: All other unhandled HTTP client errors
+#### Implementation Approach (TDD):
 
-**Note**: These phases follow the same TDD approach as Phases 0 and 1. Each error
-type gets its own status code and test coverage.
+For each error type:
+1. Add status code constant to `statuscodes.go`
+2. Write test (RED)
+3. Modify error handling to cache when `CacheAllExternal: true` (GREEN)
+4. Verify all tests pass (REFACTOR if needed)
+
+**Benefits**: Complete "fast re-runs" feature - no network calls at all when all
+errors are cached.
+
+**Status**: Deferred - Phase 1 provides the core value (discovery mode + timeout
+caching).
