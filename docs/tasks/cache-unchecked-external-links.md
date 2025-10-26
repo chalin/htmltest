@@ -147,22 +147,23 @@ For each behavior in the matrix below:
 Phase 1 focuses on implementing **Discovery Mode** (rows 5-6 from Complete
 Behavior Matrix). Timeout caching (rows 3-4) was already implemented in Phase 0.
 
-| Test# | Incr | Matrix Row | Behavior to Test               | CheckExternal-related config[^Config]            | Expected Result              | Test Name                                  | Status       |
-| ----- | ---- | ---------- | ------------------------------ | ------------------------------------------------ | ---------------------------- | ------------------------------------------ | ------------ |
-| —     | —    | Row 1      | Default/Legacy                 | Check: true, All: false, Retry: true             | 200, 4XX cached & retried    | `TestExternalErrorCachedRetried`           | ✅ Existing  |
-| —     | —    | Row 2      | Errors not retried             | Check: true, All: false, Retry: false            | 200, 4XX cached & reused     | `TestExternalBrokenRetryCachedErrorsDisabled` | ✅ Existing  |
-| —     | —    | Row 3      | Timeout cached & retried       | Check: true, All: true, Retry: true              | Timeout cached but retried   | `TestTimeoutCachedButRetried`              | ✅ Inc 4     |
-| —     | —    | Row 4      | Timeout cached & reused        | Check: true, All: true, Retry: false             | Timeout cached & reused      | `TestTimeoutCachedReused`                  | ✅ Phase 0   |
-| 1     | 0    | Row 5      | Default: no caching            | Check: false, All: false                         | Nothing cached               | `TestCacheAllExternalDisabled`             | ✅ Inc 0     |
-| 2     | 1    | Row 6      | **Discovery mode**             | Check: false, All: true                          | Cache with `StatusUnchecked` | `TestCacheAllExternalDiscovery`            | ✅ Inc 1     |
-| 3     | 2    | —          | IgnoreURLs interaction         | Check: false, All: true, IgnoreURLs: `[pattern]` | Ignored URLs NOT cached      | `TestCacheAllExternalAndIgnoredURLs`       | ✅ Inc 2     |
-| 4     | 3    | —          | StripQueryString interaction   | Check: false, All: true, StripQueryString: true  | Query stripped before cache  | `TestCacheAllExternalQueryString`          | ✅ Inc 3     |
+| Test# | Incr | Matrix Row | Behavior to Test             | CheckExternal-related config[^Config]            | Expected Result              | Test Name                                     | Status      |
+| ----- | ---- | ---------- | ---------------------------- | ------------------------------------------------ | ---------------------------- | --------------------------------------------- | ----------- |
+| —     | —    | Row 1      | Default/Legacy               | Check: true, All: false, Retry: true             | 200, 4XX cached & retried    | `TestExternalErrorCachedRetried`              | ✅ Existing |
+| —     | —    | Row 2      | Errors not retried           | Check: true, All: false, Retry: false            | 200, 4XX cached & reused     | `TestExternalBrokenRetryCachedErrorsDisabled` | ✅ Existing |
+| —     | —    | Row 3      | Timeout cached & retried     | Check: true, All: true, Retry: true              | Timeout cached but retried   | `TestTimeoutCachedButRetried`                 | ✅ Inc 4    |
+| —     | —    | Row 4      | Timeout cached & reused      | Check: true, All: true, Retry: false             | Timeout cached & reused      | `TestTimeoutCachedReused`                     | ✅ Phase 0  |
+| 1     | 0    | Row 5      | Default: no caching          | Check: false, All: false                         | Nothing cached               | `TestCacheAllExternalDisabled`                | ✅ Inc 0    |
+| 2     | 1    | Row 6      | **Discovery mode**           | Check: false, All: true                          | Cache with `StatusUnchecked` | `TestCacheAllExternalDiscovery`               | ✅ Inc 1    |
+| 3     | 2    | —          | IgnoreURLs interaction       | Check: false, All: true, IgnoreURLs: `[pattern]` | Ignored URLs NOT cached      | `TestCacheAllExternalAndIgnoredURLs`          | ✅ Inc 2    |
+| 4     | 3    | —          | StripQueryString interaction | Check: false, All: true, StripQueryString: true  | Query stripped before cache  | `TestCacheAllExternalQueryString`             | ✅ Inc 3    |
 
 [^Config]:
     Abbreviations: `Check` = `CheckExternal`, `All` = `CacheAllExternal`,
     `Retry` = `RetryCachedErrors`.
 
 **Commands**:
+
 - `make test-tdd-fast TEST_RUN=<TestName>` - Fast TDD (skip slow tests, ~1.5s)
 - `make test-tdd TEST_RUN=<TestName>` - Full TDD (includes slow tests, ~7.8s)
 - `make test-tdd-cache TEST_RUN=<TestName>` - With cache inspection
@@ -326,8 +327,9 @@ pass (GREEN)
 **Scope**: Implement `StatusUnchecked` caching when `CheckExternal: false` and
 `CacheAllExternal: true`.
 
-**Note**: Phase 1 focuses on discovery mode only. Caching additional tool-specific
-errors (network failures, cert errors) will be addressed in future phases.
+**Note**: Phase 1 focuses on discovery mode only. Caching additional
+tool-specific errors (network failures, cert errors) will be addressed in future
+phases.
 
 #### Confirm default behavior
 
@@ -365,8 +367,8 @@ Confirm that we test for the expected default behavior:
 
 - ✅ Wrote `TestCacheAllExternalAndIgnoredURLs`
 - ✅ Created `tExpectCacheEmpty` helper (more robust than checking specific URL)
-- ✅ Test run: **GREEN** (URL processing order is correct - ignored URLs filtered
-  before caching)
+- ✅ Test run: **GREEN** (URL processing order is correct - ignored URLs
+  filtered before caching)
 - ✅ No code changes needed
 - ✅ Updated `TestCacheAllExternalDisabled` and
   `TestTimeoutNotCachedWithRetryCacheErrorsOnly` to use `tExpectCacheEmpty`
@@ -378,7 +380,8 @@ cache
 
 **Purpose**: Verify CacheAllExternal works with query string stripping
 
-- ✅ Wrote `TestCacheAllExternalQueryString` using `check_just_once.html` fixture
+- ✅ Wrote `TestCacheAllExternalQueryString` using `check_just_once.html`
+  fixture
 - ✅ Tests `github.com` URLs (not in default `StripQueryExcludes`)
 - ✅ Test run: **GREEN** (query stripping happens before caching)
 - ✅ No code changes needed
@@ -433,12 +436,13 @@ timeouts) when `CheckExternal: true`
 **Currently**: Only `StatusTimeout` is cached (Phase 0)
 
 **Goal**: Cache all error types that prevent successful HTTP responses, enabling
-truly offline re-runs with `CacheAllExternal: true` and `RetryCachedErrors:
-false`.
+truly offline re-runs with `CacheAllExternal: true` and
+`RetryCachedErrors: false`.
 
 #### Error Types to Add:
 
 **1. Network errors** (`StatusNetworkError = -20`):
+
 - ✅ DNS lookup failures ("no such host")
 - ✅ Connection refused
 - ✅ Network unreachable
@@ -448,15 +452,17 @@ false`.
   `check-link.go`)
 
 **2. Certificate errors** (`StatusCertError = -30`):
+
 - ✅ x509 certificate errors (expired, untrusted, hostname mismatch, etc.)
 - ✅ Detection via string check for "x509:" in error message
 - **Tests**: `TestCertErrorCached`, `TestCertErrorCachedReused` (using
   `expired.badssl.com`)
 - **Fixture**: `link_expired_cert.html`
-- **Implementation**: Status code determined before caching to avoid control flow
-  changes (lines 258-266 in `check-link.go`)
+- **Implementation**: Status code determined before caching to avoid control
+  flow changes (lines 258-266 in `check-link.go`)
 
 **3. Generic client errors** (`StatusClientError = -40`):
+
 - ✅ Catch-all for other unhandled HTTP client errors
 - **Tests**: Skipped (rare edge case, no reliable test fixture)
 - **Implementation**: Default status code if not network/cert error (lines

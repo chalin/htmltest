@@ -14,7 +14,16 @@ This document summarizes the changes made on the `dev/main` branch relative to
 
 All features enhance external link checking and caching behavior.
 
-### 1. CacheAllExternal
+### Refcache JSON schema generalization
+
+Status: 2025-10-26 in planning
+
+Generalize the refcache JSON schema to support more fields for each URL entry.
+This is a preparatory feature for future enhancements.
+
+### CacheAllExternal
+
+Status: 2025-10-19 completed
 
 Cache all external links, including timeouts and tool-specific errors, for fast
 re-runs and link discovery mode.
@@ -36,7 +45,9 @@ re-runs and link discovery mode.
 
 See `@docs/tasks/cache-unchecked-external-links.md` for full details.
 
-### 2. RetryCachedErrors
+### RetryCachedErrors
+
+Status: 2025-10-19 revised and completed
 
 Control whether cached errors are retried on subsequent runs.
 
@@ -46,13 +57,10 @@ Control whether cached errors are retried on subsequent runs.
   `CacheAllExternal: true`)
 - **Backward compatibility**: Default `true` maintains existing behavior
 
-### 3. URL Encoding in Cache
+### URL Encoding in cache file fix
 
-Fixed URL escaping in the JSON refcache file.
-
-- Disabled HTML escaping when encoding URLs to JSON
-- URLs stored in their unescaped form in `refcache.json`
-- Improves readability and prevents double-escaping issues
+Fixed via
+[Prevent HTML escaping of URLs in JSON cache #4](https://github.com/chalin/htmltest/pull/4).
 
 ## Infrastructure & Tooling
 

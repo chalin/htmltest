@@ -25,8 +25,8 @@ When starting a session or before making changes, review:
 
 ## Current Work
 
-- Branch: dev/main
-- Current feature: CacheAllExternal (see
+- Branch: `dev/main`
+- Current feature: CacheAllExternal - **COMPLETE** ✅ (see
   `@docs/tasks/cache-unchecked-external-links.md`)
 
 ## Testing Commands
